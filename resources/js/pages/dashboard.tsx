@@ -1,5 +1,12 @@
 import { Head, Link } from '@inertiajs/react';
-import { ArrowUpRight, Bot, CircleCheck, Mic, Settings2 } from 'lucide-react';
+import {
+    ArrowUpRight,
+    Bot,
+    CircleCheck,
+    Mic,
+    Settings2,
+    Video,
+} from 'lucide-react';
 import { dashboard } from '@/routes';
 
 export default function Dashboard() {
@@ -100,6 +107,13 @@ export default function Dashboard() {
                             >
                                 Open interview room
                                 <ArrowUpRight className="size-4" />
+                            </Link>
+                            <Link
+                                href="/rooms"
+                                className="inline-flex items-center gap-2 rounded-md border px-4 py-2.5 text-sm font-medium transition hover:bg-muted"
+                            >
+                                <Video className="size-4" />
+                                Open room prototype
                             </Link>
                         </div>
                         <div className="rounded-xl border bg-card p-6 shadow-sm">
