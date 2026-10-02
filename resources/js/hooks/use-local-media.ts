@@ -76,12 +76,20 @@ export function useLocalMedia() {
         setCameraEnabled(nextEnabled);
     }, [cameraEnabled]);
 
+    const pauseCamera = useCallback(() => {
+        streamRef.current?.getVideoTracks().forEach((track) => {
+            track.enabled = false;
+        });
+        setCameraEnabled(false);
+    }, []);
+
     return {
         stream,
         status,
         error,
         isMuted,
         cameraEnabled,
+        pauseCamera,
         toggleMute,
         toggleCamera,
     };

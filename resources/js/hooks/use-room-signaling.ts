@@ -1,7 +1,12 @@
 import { echo, useEchoPublic } from '@laravel/echo-react';
 import { useCallback } from 'react';
 
-export type SignalingType = 'offer' | 'answer' | 'ice-candidate' | 'left_room';
+export type SignalingType =
+    | 'offer'
+    | 'answer'
+    | 'ice-candidate'
+    | 'left_room'
+    | 'violation_warning';
 
 export type SignalingPayload = {
     room_code: string;

@@ -155,6 +155,13 @@ export function useWebRTC({
     const handleSignal = useCallback(
         async (payload: SignalingPayload) => {
             try {
+                if (
+                    payload.data.prototype === true ||
+                    payload.type === 'violation_warning'
+                ) {
+                    return;
+                }
+
                 if (payload.type === 'left_room') {
                     closePeer();
                     setParticipantLeft(true);

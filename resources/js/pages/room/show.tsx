@@ -9,9 +9,15 @@ import {
     PhoneOff,
     Video,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    type SignalingPayload,
+    type SignalingType,
+    useRoomSignaling,
+} from '@/hooks/use-room-signaling';
 import { useLocalMedia } from '@/hooks/use-local-media';
 import { useRoomPresence } from '@/hooks/use-room-presence';
+import { useProctoringEvents } from '@/hooks/use-proctoring-events';
 import { useWebRTC } from '@/hooks/use-webrtc';
 
 type Room = {
@@ -33,6 +39,8 @@ export default function RoomShow({
     participantCount: initialParticipantCount,
 }: RoomProps) {
     const [copied, setCopied] = useState(false);
+    const [lastSignal, setLastSignal] = useState<SignalingPayload | null>(null);
+    const [violationWarning, setViolationWarning] = useState<string | null>(null);
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const {
@@ -41,9 +49,17 @@ export default function RoomShow({
         error: mediaError,
         isMuted,
         cameraEnabled,
+        pauseCamera,
         toggleMute,
         toggleCamera,
     } = useLocalMedia();
+    const handleSignal = useCallback((payload: SignalingPayload) => {
+        setLastSignal(payload);
+        if (payload.type === 'violation_warning') {
+            setViolationWarning(String(payload.data.event_type ?? 'unknown event'));
+        }
+    }, []);
+    const { sendSignal } = useRoomSignaling(room.code, handleSignal);
     const {
         participantCount,
         error: presenceError,
@@ -53,6 +69,11 @@ export default function RoomShow({
         participantToken,
     });
     const isCaller = participantRole === 'interviewer';
+    const isApplicant = participantRole === 'applicant';
+    useProctoringEvents({ enabled: isApplicant, roomCode: room.code });
+    const [isFullscreen, setIsFullscreen] = useState(!isApplicant);
+    const [fullscreenError, setFullscreenError] = useState<string | null>(null);
+    const wasFullscreenRef = useRef(false);
     const {
         remoteStream,
         connectionState,
@@ -78,6 +99,50 @@ export default function RoomShow({
         }
     }, [remoteStream]);
 
+    useEffect(() => {
+        if (!isApplicant) {
+            return;
+        }
+
+        const handleFullscreenChange = () => {
+            const active = document.fullscreenElement !== null;
+            setIsFullscreen(active);
+
+            if (!active && wasFullscreenRef.current) {
+                pauseCamera();
+            }
+
+            wasFullscreenRef.current = active;
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        handleFullscreenChange();
+
+        return () =>
+            document.removeEventListener(
+                'fullscreenchange',
+                handleFullscreenChange,
+            );
+    }, [isApplicant, pauseCamera]);
+
+    async function enterFullscreen() {
+        try {
+            await document.documentElement.requestFullscreen();
+            setFullscreenError(null);
+        } catch {
+            setFullscreenError(
+                'Fullscreen permission was not granted. Please try again.',
+            );
+        }
+    }
+
+    async function sendTestSignal(type: SignalingType) {
+        await sendSignal(type, {
+            prototype: true,
+            sent_at: new Date().toISOString(),
+        });
+    }
+
     async function copyRoomCode() {
         await navigator.clipboard.writeText(room.code);
         setCopied(true);
@@ -98,6 +163,34 @@ export default function RoomShow({
     return (
         <>
             <Head title={`Room ${room.code}`} />
+            {isApplicant && !isFullscreen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-6 text-white">
+                    <section className="max-w-md space-y-5 text-center">
+                        <p className="text-sm font-medium tracking-[0.2em] text-white/60 uppercase">
+                            Interview mode
+                        </p>
+                        <h1 className="text-3xl font-semibold">
+                            Full-screen is required
+                        </h1>
+                        <p className="text-sm leading-relaxed text-white/65">
+                            Enter full-screen mode to continue the interview.
+                            The interviewer will be notified if you leave it.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => void enterFullscreen()}
+                            className="rounded-md bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/85"
+                        >
+                            Enter full-screen
+                        </button>
+                        {fullscreenError && (
+                            <p className="text-sm text-red-300">
+                                {fullscreenError}
+                            </p>
+                        )}
+                    </section>
+                </div>
+            )}
             <div className="min-h-full flex-1 bg-[#101214] p-4 text-white md:p-8">
                 <div className="mx-auto flex max-w-6xl flex-col gap-6">
                     <header className="flex flex-wrap items-center justify-between gap-4">
@@ -200,11 +293,6 @@ export default function RoomShow({
                                     Start call
                                 </button>
                             )}
-                            {!isCaller && connectionState === 'idle' && (
-                                <span className="rounded-md border border-white/15 px-3 py-2 text-sm text-white/70">
-                                    Waiting for interviewer to start
-                                </span>
-                            )}
                             <button
                                 type="button"
                                 onClick={() => void endCall()}
@@ -255,6 +343,12 @@ export default function RoomShow({
                         </p>
                     )}
 
+                    {!isApplicant && violationWarning && (
+                        <p className="rounded-md border border-red-300/30 bg-red-300/10 p-3 text-sm text-red-100">
+                            Warning: applicant reported {violationWarning}.
+                        </p>
+                    )}
+
                     <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-5">
                         <div>
                             <p className="text-sm font-medium">Room active</p>
@@ -280,6 +374,34 @@ export default function RoomShow({
                         </p>
                     )}
 
+                    <section className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-5">
+                        <p className="text-sm font-medium text-amber-100">
+                            Signaling test
+                        </p>
+                        <p className="mt-1 text-sm text-white/60">
+                            These controls remain available for inspecting the
+                            signaling layer while WebRTC is connected.
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            {(
+                                ['offer', 'answer', 'ice-candidate'] as const
+                            ).map((type) => (
+                                <button
+                                    key={type}
+                                    type="button"
+                                    onClick={() => void sendTestSignal(type)}
+                                    className="rounded-md border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
+                                >
+                                    Send {type}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="mt-4 text-xs text-white/50">
+                            {lastSignal
+                                ? `Received ${lastSignal.type} from another participant.`
+                                : 'No signaling message received yet.'}
+                        </p>
+                    </section>
                 </div>
             </div>
         </>
