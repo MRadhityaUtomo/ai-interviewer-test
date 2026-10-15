@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\InterviewController;
+use App\Http\Controllers\InterviewRecordingController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\RoomPresenceController;
 use App\Http\Controllers\RoomViolationController;
@@ -20,6 +21,10 @@ Route::middleware('auth')->group(function () {
 	Route::post('rooms/{roomCode}/presence/heartbeat', [RoomPresenceController::class, 'heartbeat'])->name('rooms.presence.heartbeat');
 	Route::post('rooms/{roomCode}/presence/leave', [RoomPresenceController::class, 'leave'])->name('rooms.presence.leave');
 	Route::post('rooms/{roomCode}/violations', [RoomViolationController::class, 'store'])->name('rooms.violations.store');
+	Route::get('rooms/{roomCode}/recordings', [InterviewRecordingController::class, 'index'])->name('rooms.recordings.index');
+	Route::post('rooms/{roomCode}/recordings', [InterviewRecordingController::class, 'store'])->name('rooms.recordings.store');
+	Route::get('recordings/{recording}/stream', [InterviewRecordingController::class, 'stream'])->name('recordings.stream');
+	Route::get('recordings/{recording}/download', [InterviewRecordingController::class, 'download'])->name('recordings.download');
 });
 
 Route::get('interview', [InterviewController::class, 'show'])->name('interview.session');

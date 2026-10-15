@@ -17,4 +17,9 @@ class InterviewRoom extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    public function recordings()
+    {
+        return $this->hasMany(InterviewRecording::class, 'interview_room_id');
+    }
 }
