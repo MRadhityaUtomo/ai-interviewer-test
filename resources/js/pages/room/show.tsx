@@ -191,8 +191,15 @@ export default function RoomShow({
                 });
 
                 if (!response.ok) {
+                    if (response.status === 413) {
+                        throw new Error('Ukuran file rekaman melebihi batas upload PHP server.');
+                    }
+                    if (response.status === 419) {
+                        throw new Error('Sesi halaman telah kedaluwarsa. Silakan refresh halaman.');
+                    }
                     const errorJson = await response.json().catch(() => ({}));
-                    throw new Error(errorJson.message || 'Gagal menyimpan rekaman ke server.');
+                    const validationErr = errorJson.errors?.recording?.[0] || errorJson.message;
+                    throw new Error(validationErr || 'Gagal menyimpan rekaman ke server.');
                 }
 
                 toast.success('Rekaman meeting berhasil disimpan di penyimpanan lokal!', { id: toastId });

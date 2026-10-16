@@ -149,7 +149,7 @@ export function useMeetingRecorder({
 
         drawFrame();
 
-        const canvasStream = canvas.captureStream(30);
+        const canvasStream = canvas.captureStream(24);
         canvasStreamRef.current = canvasStream;
 
         const combinedStream = new MediaStream();
@@ -188,7 +188,8 @@ export function useMeetingRecorder({
             const mimeType = getMimeType();
 
             const options: MediaRecorderOptions = {
-                videoBitsPerSecond: 1500000, // 1.5 Mbps
+                videoBitsPerSecond: 750000, // 750 kbps: ~55% smaller file size with crisp 720p visual
+                audioBitsPerSecond: 64000,  // 64 kbps: clear vocal audio compression
             };
             if (mimeType) {
                 options.mimeType = mimeType;
@@ -209,6 +210,14 @@ export function useMeetingRecorder({
                 const recordedSeconds = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000));
 
                 cleanupResources();
+
+                // Guard against accidental instant click (< 1KB)
+                if (completeBlob.size < 1024) {
+                    setStatus('idle');
+                    setError('Durasi rekaman terlalu singkat.');
+                    return;
+                }
+
                 setStatus('stopped');
 
                 if (onRecordingComplete) {
