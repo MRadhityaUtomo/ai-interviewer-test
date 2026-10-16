@@ -129,4 +129,33 @@ class InterviewRecordingTest extends TestCase
         $downloadResponse = $this->get(route('recordings.download', $recording->id));
         $downloadResponse->assertOk();
     }
+
+    public function test_can_upload_audio_for_ai_analysis(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->create(['role' => 'interviewer']);
+        $room = InterviewRoom::create([
+            'room_code' => 'REC104',
+            'status' => 'active',
+            'user_id' => $user->id,
+        ]);
+
+        $this->actingAs($user);
+
+        $audioFile = UploadedFile::fake()->create('ai_audio.webm', 512, 'audio/webm');
+
+        $response = $this->postJson(route('rooms.analyze-audio', $room->room_code), [
+            'audio' => $audioFile,
+            'room_code' => $room->room_code,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+        ]);
+
+        $savedFileName = $response->json('file_name');
+        Storage::disk('public')->assertExists("audio/{$room->room_code}/{$savedFileName}");
+    }
 }

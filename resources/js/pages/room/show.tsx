@@ -14,6 +14,7 @@ import {
     PhoneCall,
     PhoneOff,
     Play,
+    Sparkles,
     Square,
     Video,
 } from 'lucide-react';
@@ -213,10 +214,13 @@ export default function RoomShow({
         [room.code, fetchRecordings]
     );
 
+    const [isSendingToAi, setIsSendingToAi] = useState(false);
+
     const {
         status: recordingStatus,
         formattedDuration,
         error: recordingError,
+        aiAudioBlob,
         isRecording,
         isPaused,
         isUploading,
@@ -229,8 +233,46 @@ export default function RoomShow({
         remoteStream,
         localVideoRef,
         remoteVideoRef,
+        roomCode: room.code,
+        autoDownload: true,
         onRecordingComplete: handleRecordingComplete,
     });
+
+    const sendAudioToAi = useCallback(async () => {
+        if (!aiAudioBlob) return;
+
+        setIsSendingToAi(true);
+        const toastId = toast.loading('Mengunggah audio ke server untuk analisis AI...');
+
+        try {
+            const formData = new FormData();
+            formData.append('audio', aiAudioBlob, `ai_audio_${room.code}_${Date.now()}.webm`);
+            formData.append('room_code', room.code);
+
+            const response = await fetch(`/rooms/${room.code}/analyze-audio`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                },
+            });
+
+            if (!response.ok) {
+                const errorJson = await response.json().catch(() => ({}));
+                const msg = errorJson.message || 'Gagal mengirim audio ke server AI.';
+                toast.error(msg, { id: toastId });
+                return;
+            }
+
+            toast.success('Audio berhasil dikirim untuk analisis AI (SenseVoice / Qwen)!', { id: toastId });
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Gagal mengirim audio ke server AI.';
+            toast.error(msg, { id: toastId });
+        } finally {
+            setIsSendingToAi(false);
+        }
+    }, [aiAudioBlob, room.code]);
 
     // Auto load recordings on mount
     useEffect(() => {
@@ -555,6 +597,24 @@ export default function RoomShow({
                                         >
                                             <Loader2 className="size-4 animate-spin text-rose-400" />
                                             Saving to disk...
+                                        </button>
+                                    )}
+
+                                    {/* Phase 20: Kirim Audio ke AI button */}
+                                    {aiAudioBlob && !isRecording && (
+                                        <button
+                                            type="button"
+                                            onClick={sendAudioToAi}
+                                            disabled={isSendingToAi}
+                                            className="inline-flex items-center gap-2 rounded-md bg-purple-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                                            title="Kirim audio rekaman ke model AI untuk analisis"
+                                        >
+                                            {isSendingToAi ? (
+                                                <Loader2 className="size-4 animate-spin text-purple-200" />
+                                            ) : (
+                                                <Sparkles className="size-4 text-purple-200" />
+                                            )}
+                                            {isSendingToAi ? 'Mengirim ke AI...' : 'Kirim Audio ke AI'}
                                         </button>
                                     )}
                                 </>

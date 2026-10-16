@@ -97,4 +97,39 @@ class InterviewRecordingController extends Controller
 
         return Storage::disk('public')->download($recording->file_path, $recording->file_name);
     }
+
+    public function analyzeAudio(Request $request, ?string $roomCode = null): JsonResponse
+    {
+        $code = $roomCode ?: $request->input('room_code');
+        $room = $code ? InterviewRoom::where('room_code', strtoupper($code))->first() : null;
+
+        $request->validate([
+            'audio' => ['required', 'file', 'max:102400'], // max 100MB
+        ]);
+
+        $file = $request->file('audio');
+        $extension = $file->getClientOriginalExtension() ?: 'webm';
+        $timestamp = now()->format('Ymd_His');
+        $random = Str::random(6);
+        $folderCode = $room ? $room->room_code : 'general';
+        $fileName = "audio_ai_{$folderCode}_{$timestamp}_{$random}.{$extension}";
+        $folder = "audio/{$folderCode}";
+
+        $storedPath = Storage::disk('public')->putFileAs($folder, $file, $fileName);
+
+        if (! $storedPath) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to store AI audio file on disk.',
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Audio berhasil diterima dan siap untuk analisis AI (SenseVoice / Qwen).',
+            'file_name' => $fileName,
+            'file_path' => $storedPath,
+            'size_bytes' => $file->getSize() ?: 0,
+        ], 200);
+    }
 }
