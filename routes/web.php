@@ -27,6 +27,8 @@ Route::middleware('auth')->group(function () {
 	Route::get('recordings/{recording}/download', [InterviewRecordingController::class, 'download'])->name('recordings.download');
 	Route::post('rooms/{roomCode}/analyze-audio', [InterviewRecordingController::class, 'analyzeAudio'])->name('rooms.analyze-audio');
 	Route::post('room/analyze-audio', [InterviewRecordingController::class, 'analyzeAudio'])->name('room.analyze-audio');
+	Route::post('rooms/{roomCode}/send-message', [RoomController::class, 'sendMessage'])->name('rooms.send-message');
+	Route::post('room/{roomCode}/send-message', [RoomController::class, 'sendMessage'])->name('room.send-message');
 });
 
 Route::get('interview', [InterviewController::class, 'show'])->name('interview.session');

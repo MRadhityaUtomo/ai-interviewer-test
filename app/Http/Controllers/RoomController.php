@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\InterviewMessage;
 use App\Models\InterviewRoom;
 use App\Services\RoomPresenceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Str;
@@ -88,6 +90,11 @@ class RoomController extends Controller
             ]);
         }
 
+        $messages = InterviewMessage::where('room_code', $room->room_code)
+            ->orderBy('created_at')
+            ->get(['id', 'role', 'message', 'created_at'])
+            ->toArray();
+
         return Inertia::render('room/show', [
             'room' => [
                 'code' => $room->room_code,
@@ -96,6 +103,54 @@ class RoomController extends Controller
             'participantRole' => $role,
             'participantToken' => $participantToken,
             'participantCount' => $presenceResult['count'],
+            'messages' => $messages,
         ]);
+    }
+
+    /**
+     * Phase 22: Receive speech transcript/message, save to DB, simulate AI reply.
+     */
+    public function sendMessage(Request $request, string $roomCode): RedirectResponse
+    {
+        $room = InterviewRoom::where('room_code', strtoupper($roomCode))
+            ->where('status', 'active')
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'message' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $role = $request->user()->role === 'interviewer' ? 'interviewer' : 'applicant';
+
+        // 1. Simpan pesan dari pengguna (applicant / interviewer)
+        InterviewMessage::create([
+            'interview_room_id' => $room->id,
+            'room_code' => $room->room_code,
+            'user_id' => $request->user()->id,
+            'role' => 'applicant',
+            'message' => $validated['message'],
+        ]);
+
+        // 2. Dummy AI Response: Jika pengirim adalah applicant, generate respon bot AI
+        $dummyReplies = [
+            'Menarik sekali penjelasan Anda. Bisa ceritakan lebih detail mengenai tantangan terbesar yang Anda hadapi?',
+            'Bagus sekali. Bagaimana Anda mengukur keberhasilan dari solusi atau inisiatif tersebut?',
+            'Apa peran spesifik Anda dalam tim saat menyelesaikan masalah itu?',
+            'Menarik. Jika diberi kesempatan mengulang kembali, apa hal yang akan Anda lakukan secara berbeda?',
+            'Terima kasih atas jawabannya. Bisakah Anda memberikan contoh situasi lain yang relevan?',
+            'Sangat jelas. Bagaimana Anda mengatasi perbedaan pendapat dengan rekan kerja saat itu?',
+        ];
+
+        sleep(1); // Simulasi jeda komputasi AI
+
+        InterviewMessage::create([
+            'interview_room_id' => $room->id,
+            'room_code' => $room->room_code,
+            'user_id' => null,
+            'role' => 'ai_assistant',
+            'message' => Arr::random($dummyReplies),
+        ]);
+
+        return back();
     }
 }

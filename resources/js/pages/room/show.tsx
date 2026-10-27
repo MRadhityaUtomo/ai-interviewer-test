@@ -1,5 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import {
+    Bot,
     Camera,
     CameraOff,
     Clock,
@@ -8,15 +9,20 @@ import {
     Film,
     HardDrive,
     Loader2,
+    MessageSquare,
     Mic,
     MicOff,
     Pause,
     PhoneCall,
     PhoneOff,
     Play,
+    Send,
     Sparkles,
     Square,
+    Trash2,
+    User,
     Video,
+    Volume2,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -30,6 +36,7 @@ import { useRoomPresence } from '@/hooks/use-room-presence';
 import { useProctoringEvents } from '@/hooks/use-proctoring-events';
 import { useWebRTC } from '@/hooks/use-webrtc';
 import { useMeetingRecorder } from '@/hooks/use-meeting-recorder';
+import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import {
     Dialog,
     DialogContent,
@@ -43,11 +50,19 @@ type Room = {
     status: string;
 };
 
+export type InterviewMessageItem = {
+    id: number;
+    role: 'applicant' | 'ai_assistant' | string;
+    message: string;
+    created_at: string;
+};
+
 type RoomProps = {
     room: Room;
     participantRole: string;
     participantToken: string;
     participantCount: number;
+    messages?: InterviewMessageItem[];
 };
 
 type RecordingItem = {
@@ -98,6 +113,7 @@ export default function RoomShow({
     participantRole,
     participantToken,
     participantCount: initialParticipantCount,
+    messages: initialMessages = [],
 }: RoomProps) {
     const [copied, setCopied] = useState(false);
     const [lastSignal, setLastSignal] = useState<SignalingPayload | null>(null);
@@ -106,6 +122,8 @@ export default function RoomShow({
     const [isLoadingRecordings, setIsLoadingRecordings] = useState(false);
     const [isRecordingsOpen, setIsRecordingsOpen] = useState(false);
     const [activePlaybackUrl, setActivePlaybackUrl] = useState<string | null>(null);
+    const [isProcessingAI, setIsProcessingAI] = useState(false);
+    const [transcriptDraft, setTranscriptDraft] = useState('');
 
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -273,6 +291,70 @@ export default function RoomShow({
             setIsSendingToAi(false);
         }
     }, [aiAudioBlob, room.code]);
+
+    // Phase 21: Client-Side Real-Time Speech-to-Text (Web Speech API)
+    const {
+        isListening: isSTTListening,
+        isSupported: isSTTSupported,
+        liveTranscript,
+        interimTranscript,
+        startListening: startSTT,
+        stopListening: stopSTT,
+        clearTranscript: clearSTT,
+    } = useSpeechRecognition({
+        lang: 'id-ID',
+        continuous: true,
+        interimResults: true,
+    });
+
+    // Synchronize transcriptDraft with speech recognition results
+    useEffect(() => {
+        if (liveTranscript) {
+            setTranscriptDraft(liveTranscript);
+        }
+    }, [liveTranscript]);
+
+    // Auto-activate STT when microphone is ready and unmuted
+    useEffect(() => {
+        if (isSTTSupported && mediaStatus === 'ready' && !isMuted && !isSTTListening) {
+            startSTT();
+        } else if (isMuted && isSTTListening) {
+            stopSTT();
+        }
+    }, [isSTTSupported, mediaStatus, isMuted, isSTTListening, startSTT, stopSTT]);
+
+    // Phase 22 & 23: Send speech transcript to backend as prompt for AI
+    const sendMessageToAi = useCallback(
+        (explicitText?: string) => {
+            const raw = explicitText ?? transcriptDraft ?? liveTranscript;
+            const text = (raw + (interimTranscript ? ` ${interimTranscript}` : '')).trim();
+
+            if (!text) {
+                toast.error('Belum ada teks ucapan terdeteksi. Silakan berbicara di mikrofon terlebih dahulu.');
+                return;
+            }
+
+            router.post(
+                `/rooms/${room.code}/send-message`,
+                { message: text },
+                {
+                    preserveScroll: true,
+                    onStart: () => setIsProcessingAI(true),
+                    onSuccess: () => {
+                        clearSTT();
+                        setTranscriptDraft('');
+                        toast.success('Pesan berhasil diproses oleh sistem AI!');
+                    },
+                    onError: (errors) => {
+                        const msg = Object.values(errors)[0] || 'Gagal mengirim pesan ke server AI.';
+                        toast.error(String(msg));
+                    },
+                    onFinish: () => setIsProcessingAI(false),
+                }
+            );
+        },
+        [transcriptDraft, liveTranscript, interimTranscript, room.code, clearSTT]
+    );
 
     // Auto load recordings on mount
     useEffect(() => {
@@ -483,6 +565,41 @@ export default function RoomShow({
                                     <CameraOff className="size-8" />
                                 </div>
                             )}
+
+                            {/* Phase 21: STT Status Indicator */}
+                            {isSTTSupported && (
+                                <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur-md px-2.5 py-1 text-[11px] font-medium border border-white/15">
+                                    <span
+                                        className={`size-2 rounded-full ${
+                                            isSTTListening ? 'bg-emerald-400 animate-pulse' : 'bg-white/40'
+                                        }`}
+                                    />
+                                    <span className="text-white/80">
+                                        {isSTTListening ? 'STT Aktif' : 'STT Dijeda'}
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Phase 21: Real-time Live Subtitles when Applicant/User speaks */}
+                            {(interimTranscript || liveTranscript) && (
+                                <div className="absolute inset-x-3 bottom-10 z-10 flex justify-center pointer-events-none">
+                                    <div className="max-w-[92%] rounded-lg bg-black/85 backdrop-blur-md px-3.5 py-2 border border-emerald-500/40 text-center shadow-2xl transition-all">
+                                        <div className="flex items-center justify-center gap-1.5 mb-0.5 text-[10px] font-semibold tracking-wide uppercase text-emerald-400">
+                                            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" />
+                                            <span>Transkrip Suara Langsung</span>
+                                        </div>
+                                        <p className="text-xs md:text-sm text-white font-medium leading-relaxed drop-shadow">
+                                            {liveTranscript && <span>{liveTranscript} </span>}
+                                            {interimTranscript && (
+                                                <span className="text-emerald-300 italic font-semibold">
+                                                    {interimTranscript}
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
                             <span className="absolute bottom-3 left-3 rounded-md bg-black/60 px-2 py-1 text-xs">
                                 You ({participantRole})
                             </span>
@@ -694,6 +811,199 @@ export default function RoomShow({
                             Warning: applicant reported {violationWarning}.
                         </p>
                     )}
+
+                    {/* Phase 21 & 23: Live Speech-to-Text & AI Conversation Transcript */}
+                    <section className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-5">
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex size-9 items-center justify-center rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-400">
+                                    <Sparkles className="size-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-base font-semibold text-white flex items-center gap-2">
+                                        <span>Live Speech-to-Text & AI Assistant</span>
+                                        <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                                            Web Speech API (id-ID)
+                                        </span>
+                                    </h2>
+                                    <p className="text-xs text-white/60">
+                                        Ucapan suara akan ditranskrip secara real-time dan dapat dikirim sebagai prompt teks untuk evaluasi AI.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                {isSTTSupported ? (
+                                    <button
+                                        type="button"
+                                        onClick={isSTTListening ? stopSTT : startSTT}
+                                        className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                            isSTTListening
+                                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30'
+                                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30'
+                                        }`}
+                                    >
+                                        {isSTTListening ? (
+                                            <>
+                                                <MicOff className="size-3.5" />
+                                                <span>Jeda Deteksi Suara</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Mic className="size-3.5" />
+                                                <span>Mulai Deteksi Suara</span>
+                                            </>
+                                        )}
+                                    </button>
+                                ) : (
+                                    <span className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-md">
+                                        Browser belum mendukung Web Speech API
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Speech Input & Prompt Box */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between text-xs">
+                                <label className="font-medium text-white/80 flex items-center gap-2">
+                                    <MessageSquare className="size-3.5 text-purple-300" />
+                                    <span>Teks Transkrip Suara (Siap dikirim ke AI)</span>
+                                </label>
+                                {isSTTListening && (
+                                    <span className="flex items-center gap-1.5 text-emerald-400 font-medium animate-pulse">
+                                        <span className="size-2 rounded-full bg-emerald-400" />
+                                        Mendengarkan ucapan mikrofon...
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="relative">
+                                <textarea
+                                    value={
+                                        transcriptDraft + (interimTranscript ? ` [${interimTranscript}]` : '')
+                                    }
+                                    onChange={(e) => setTranscriptDraft(e.target.value)}
+                                    rows={3}
+                                    placeholder="Kata-kata yang Anda ucapkan di mikrofon akan otomatis muncul di sini sebagai draf teks... Anda juga dapat mengeditnya secara manual."
+                                    className="w-full rounded-lg border border-white/15 bg-black/40 p-3 text-sm text-white placeholder-white/35 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-colors"
+                                />
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                                <div className="text-xs text-white/50">
+                                    Tekan <strong>Kirim Pesan ke AI</strong> untuk memproses ucapan ini sebagai prompt pertanyaan lanjutan.
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            clearSTT();
+                                            setTranscriptDraft('');
+                                        }}
+                                        disabled={!transcriptDraft && !interimTranscript && !liveTranscript}
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        <Trash2 className="size-3.5" />
+                                        <span>Reset Teks</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => sendMessageToAi()}
+                                        disabled={isProcessingAI || (!transcriptDraft && !interimTranscript && !liveTranscript)}
+                                        className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md hover:from-purple-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        {isProcessingAI ? (
+                                            <>
+                                                <Loader2 className="size-3.5 animate-spin" />
+                                                <span>AI Sedang Memproses...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send className="size-3.5" />
+                                                <span>Kirim Pesan ke AI</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Phase 23: Chat & AI Response History */}
+                        <div className="border-t border-white/10 pt-4 space-y-3">
+                            <h3 className="text-xs font-semibold tracking-wider uppercase text-white/60">
+                                Riwayat Transkrip Percakapan & Respons AI
+                            </h3>
+
+                            <div className="flex flex-col gap-3 max-h-80 overflow-y-auto pr-1 rounded-lg">
+                                {initialMessages.length === 0 && !isProcessingAI ? (
+                                    <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] p-6 text-center text-xs text-white/50">
+                                        Belum ada percakapan tercatat. Berbicaralah di mikrofon untuk mengisi draf di atas, lalu klik "Kirim Pesan ke AI".
+                                    </div>
+                                ) : (
+                                    initialMessages.map((msg) => (
+                                        <div
+                                            key={msg.id}
+                                            className={`flex gap-3 max-w-[85%] ${
+                                                msg.role === 'applicant'
+                                                    ? 'self-end flex-row-reverse text-right'
+                                                    : 'self-start text-left'
+                                            }`}
+                                        >
+                                            <div
+                                                className={`flex size-8 shrink-0 items-center justify-center rounded-full text-xs ${
+                                                    msg.role === 'applicant'
+                                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                                        : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                                }`}
+                                            >
+                                                {msg.role === 'applicant' ? (
+                                                    <User className="size-4" />
+                                                ) : (
+                                                    <Bot className="size-4" />
+                                                )}
+                                            </div>
+
+                                            <div
+                                                className={`rounded-xl p-3.5 text-xs shadow-sm ${
+                                                    msg.role === 'applicant'
+                                                        ? 'bg-emerald-600/20 border border-emerald-500/30 text-emerald-50'
+                                                        : 'bg-purple-950/40 border border-purple-500/30 text-purple-50'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2 mb-1 opacity-70 text-[10px] font-semibold uppercase tracking-wider">
+                                                    <span>
+                                                        {msg.role === 'applicant' ? 'Applicant (Suara)' : 'AI Interviewer'}
+                                                    </span>
+                                                    <span>•</span>
+                                                    <span>
+                                                        {new Date(msg.created_at).toLocaleTimeString([], {
+                                                            hour: '2-digit',
+                                                            minute: '2-digit',
+                                                        })}
+                                                    </span>
+                                                </div>
+                                                <p className="leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+
+                                {isProcessingAI && (
+                                    <div className="flex gap-3 max-w-[85%] self-start text-left animate-pulse">
+                                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                            <Bot className="size-4" />
+                                        </div>
+                                        <div className="rounded-xl p-3.5 text-xs bg-purple-950/40 border border-purple-500/30 text-purple-200 flex items-center gap-2">
+                                            <Loader2 className="size-3.5 animate-spin text-purple-300" />
+                                            <span>AI sedang menganalisis transkrip dan menyusun pertanyaan lanjutan...</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </section>
 
                     <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-5">
                         <div>

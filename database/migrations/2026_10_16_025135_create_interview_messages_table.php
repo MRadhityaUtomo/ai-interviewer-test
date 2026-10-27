@@ -13,6 +13,11 @@ return new class extends Migration
     {
         Schema::create('interview_messages', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('interview_room_id')->constrained()->cascadeOnDelete();
+            $table->string('room_code', 10)->index();
+            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+            $table->enum('role', ['applicant', 'ai_assistant']);
+            $table->text('message');
             $table->timestamps();
         });
     }
