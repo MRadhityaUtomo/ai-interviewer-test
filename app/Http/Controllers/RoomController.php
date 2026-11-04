@@ -4,10 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\InterviewMessage;
 use App\Models\InterviewRoom;
+use App\Services\Ai\AiProviderException;
+use App\Services\Ai\InterviewAiService;
 use App\Services\RoomPresenceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Str;
@@ -108,9 +109,9 @@ class RoomController extends Controller
     }
 
     /**
-     * Phase 22: Receive speech transcript/message, save to DB, simulate AI reply.
+     * Phase 22: Receive speech transcript/message, save to DB, generate AI reply.
      */
-    public function sendMessage(Request $request, string $roomCode): RedirectResponse
+    public function sendMessage(Request $request, string $roomCode, InterviewAiService $ai): RedirectResponse
     {
         $room = InterviewRoom::where('room_code', strtoupper($roomCode))
             ->where('status', 'active')
@@ -131,24 +132,27 @@ class RoomController extends Controller
             'message' => $validated['message'],
         ]);
 
-        // 2. Dummy AI Response: Jika pengirim adalah applicant, generate respon bot AI
-        $dummyReplies = [
-            'Menarik sekali penjelasan Anda. Bisa ceritakan lebih detail mengenai tantangan terbesar yang Anda hadapi?',
-            'Bagus sekali. Bagaimana Anda mengukur keberhasilan dari solusi atau inisiatif tersebut?',
-            'Apa peran spesifik Anda dalam tim saat menyelesaikan masalah itu?',
-            'Menarik. Jika diberi kesempatan mengulang kembali, apa hal yang akan Anda lakukan secara berbeda?',
-            'Terima kasih atas jawabannya. Bisakah Anda memberikan contoh situasi lain yang relevan?',
-            'Sangat jelas. Bagaimana Anda mengatasi perbedaan pendapat dengan rekan kerja saat itu?',
-        ];
+        // 2. Hanya jawaban applicant yang dibalas AI (provider dipilih lewat AI_PROVIDER)
+        if ($role !== 'applicant') {
+            return back();
+        }
 
-        sleep(1); // Simulasi jeda komputasi AI
+        try {
+            $reply = $ai->nextReply($room);
+        } catch (AiProviderException $e) {
+            report($e);
+
+            return back()->withErrors([
+                'message' => 'AI sedang tidak tersedia. Jawaban Anda sudah tersimpan, silakan coba lagi sebentar.',
+            ]);
+        }
 
         InterviewMessage::create([
             'interview_room_id' => $room->id,
             'room_code' => $room->room_code,
             'user_id' => null,
             'role' => 'ai_assistant',
-            'message' => Arr::random($dummyReplies),
+            'message' => $reply,
         ]);
 
         return back();

@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Services\Ai\AiProviderInterface;
+use App\Services\Ai\FakeAiProvider;
+use App\Services\Ai\QwenProvider;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +18,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(AiProviderInterface::class, fn (): AiProviderInterface => match (config('services.ai.provider')) {
+            'qwen' => new QwenProvider(
+                apiKey: config('services.qwen.api_key'),
+                baseUrl: config('services.qwen.base_url'),
+                model: config('services.qwen.model'),
+                timeout: config('services.qwen.timeout'),
+            ),
+            default => new FakeAiProvider,
+        });
     }
 
     /**

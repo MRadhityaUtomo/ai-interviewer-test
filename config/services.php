@@ -28,6 +28,19 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'ai' => [
+        // "fake" (offline dummy replies) or "qwen"
+        'provider' => env('AI_PROVIDER', 'fake'),
+    ],
+
+    'qwen' => [
+        'api_key' => env('DASHSCOPE_API_KEY'),
+        // International (Singapore) region; China region: https://dashscope.aliyuncs.com/compatible-mode/v1
+        'base_url' => env('QWEN_BASE_URL', 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'),
+        'model' => env('QWEN_MODEL', 'qwen-plus'),
+        'timeout' => (int) env('QWEN_TIMEOUT', 30),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

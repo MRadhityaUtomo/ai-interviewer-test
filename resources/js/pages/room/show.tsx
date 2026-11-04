@@ -34,6 +34,7 @@ import {
 import { useLocalMedia } from '@/hooks/use-local-media';
 import { useRoomPresence } from '@/hooks/use-room-presence';
 import { useProctoringEvents } from '@/hooks/use-proctoring-events';
+import { useVoiceActivity } from '@/hooks/use-voice-activity';
 import { useWebRTC } from '@/hooks/use-webrtc';
 import { useMeetingRecorder } from '@/hooks/use-meeting-recorder';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
@@ -138,6 +139,7 @@ export default function RoomShow({
         toggleMute,
         toggleCamera,
     } = useLocalMedia();
+    const isLocalSpeaking = useVoiceActivity(stream);
 
     const handleSignal = useCallback((payload: SignalingPayload) => {
         setLastSignal(payload);
@@ -176,6 +178,7 @@ export default function RoomShow({
         localStream: stream,
         isCaller,
     });
+    const isRemoteSpeaking = useVoiceActivity(remoteStream);
 
     const fetchRecordings = useCallback(async () => {
         try {
@@ -292,20 +295,27 @@ export default function RoomShow({
         }
     }, [aiAudioBlob, room.code]);
 
-    // Phase 21: Client-Side Real-Time Speech-to-Text (Web Speech API)
+    // Phase 21: Client-Side Real-Time Speech-to-Text (Web Speech API with Jaksel / Bilingual support)
     const {
+        isActive: isSTTActive,
         isListening: isSTTListening,
         isSupported: isSTTSupported,
+        currentLang: sttLang,
+        setLang: setSTTLang,
         liveTranscript,
         interimTranscript,
         startListening: startSTT,
         stopListening: stopSTT,
         clearTranscript: clearSTT,
     } = useSpeechRecognition({
-        lang: 'id-ID',
+        lang: 'mixed', // Default to mixed (Jaksel / Indonesian-English code-switching)
         continuous: true,
         interimResults: true,
     });
+
+    // Refs to track user manual pause intent and initialization to prevent infinite flicker loops
+    const sttUserPausedRef = useRef(false);
+    const sttInitializedRef = useRef(false);
 
     // Synchronize transcriptDraft with speech recognition results
     useEffect(() => {
@@ -314,14 +324,38 @@ export default function RoomShow({
         }
     }, [liveTranscript]);
 
-    // Auto-activate STT when microphone is ready and unmuted
+    // One-time auto-start when microphone first becomes ready
     useEffect(() => {
-        if (isSTTSupported && mediaStatus === 'ready' && !isMuted && !isSTTListening) {
+        if (!isSTTSupported) return;
+
+        if (mediaStatus === 'ready' && !isMuted && !sttInitializedRef.current) {
+            sttInitializedRef.current = true;
+            sttUserPausedRef.current = false;
             startSTT();
-        } else if (isMuted && isSTTListening) {
-            stopSTT();
         }
-    }, [isSTTSupported, mediaStatus, isMuted, isSTTListening, startSTT, stopSTT]);
+    }, [isSTTSupported, mediaStatus, isMuted, startSTT]);
+
+    // Handle mute / unmute behavior cleanly without looping
+    useEffect(() => {
+        if (!isSTTSupported || !sttInitializedRef.current) return;
+
+        if (isMuted) {
+            stopSTT();
+        } else if (!isMuted && !sttUserPausedRef.current) {
+            startSTT();
+        }
+    }, [isMuted, isSTTSupported, startSTT, stopSTT]);
+
+    // Explicit manual toggle handler
+    const handleToggleSTT = useCallback(() => {
+        if (isSTTActive) {
+            sttUserPausedRef.current = true;
+            stopSTT();
+        } else {
+            sttUserPausedRef.current = false;
+            startSTT();
+        }
+    }, [isSTTActive, startSTT, stopSTT]);
 
     // Phase 22 & 23: Send speech transcript to backend as prompt for AI
     const sendMessageToAi = useCallback(
@@ -552,7 +586,11 @@ export default function RoomShow({
                     </header>
 
                     <section className="grid gap-4 md:grid-cols-2">
-                        <div className="relative aspect-video overflow-hidden rounded-xl border border-white/10 bg-black">
+                        <div
+                            className={`relative aspect-video overflow-hidden rounded-xl border-2 bg-black transition-colors duration-150 ${
+                                isLocalSpeaking ? 'border-emerald-400' : 'border-white/10'
+                            }`}
+                        >
                             <video
                                 ref={localVideoRef}
                                 autoPlay
@@ -604,7 +642,11 @@ export default function RoomShow({
                                 You ({participantRole})
                             </span>
                         </div>
-                        <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-xl border border-dashed border-white/15 bg-white/[0.03]">
+                        <div
+                            className={`relative flex aspect-video items-center justify-center overflow-hidden rounded-xl border-2 bg-white/[0.03] transition-colors duration-150 ${
+                                isRemoteSpeaking ? 'border-solid border-emerald-400' : 'border-dashed border-white/15'
+                            }`}
+                        >
                             <video
                                 ref={remoteVideoRef}
                                 autoPlay
@@ -822,8 +864,12 @@ export default function RoomShow({
                                 <div>
                                     <h2 className="text-base font-semibold text-white flex items-center gap-2">
                                         <span>Live Speech-to-Text & AI Assistant</span>
-                                        <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-                                            Web Speech API (id-ID)
+                                        <span className="rounded-full bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 text-[10px] font-semibold text-purple-300">
+                                            {sttLang === 'mixed'
+                                                ? '🌐 Bilingual (Jaksel ID-EN)'
+                                                : sttLang === 'en-US'
+                                                ? '🇬🇧 English (en-US)'
+                                                : '🇮🇩 Indonesia (id-ID)'}
                                         </span>
                                     </h2>
                                     <p className="text-xs text-white/60">
@@ -832,29 +878,75 @@ export default function RoomShow({
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 {isSTTSupported ? (
-                                    <button
-                                        type="button"
-                                        onClick={isSTTListening ? stopSTT : startSTT}
-                                        className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                                            isSTTListening
-                                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30'
-                                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30'
-                                        }`}
-                                    >
-                                        {isSTTListening ? (
-                                            <>
-                                                <MicOff className="size-3.5" />
-                                                <span>Jeda Deteksi Suara</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Mic className="size-3.5" />
-                                                <span>Mulai Deteksi Suara</span>
-                                            </>
-                                        )}
-                                    </button>
+                                    <>
+                                        {/* Language Mode Switcher */}
+                                        <div className="flex items-center rounded-lg border border-white/15 bg-black/40 p-0.5 text-xs">
+                                            <button
+                                                type="button"
+                                                onClick={() => setSTTLang('mixed')}
+                                                className={`px-2.5 py-1 rounded font-medium transition-colors flex items-center gap-1.5 ${
+                                                    sttLang === 'mixed'
+                                                        ? 'bg-purple-600 text-white shadow-sm'
+                                                        : 'text-white/60 hover:text-white'
+                                                }`}
+                                                title="Mode Campuran: Mendeteksi percakapan campur Bahasa Indonesia & English (Jaksel)"
+                                            >
+                                                <span>🌐</span>
+                                                <span>Jaksel (ID-EN)</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSTTLang('id-ID')}
+                                                className={`px-2 py-1 rounded font-medium transition-colors flex items-center gap-1 ${
+                                                    sttLang === 'id-ID'
+                                                        ? 'bg-purple-600 text-white shadow-sm'
+                                                        : 'text-white/60 hover:text-white'
+                                                }`}
+                                                title="Deteksi Bahasa Indonesia Murni"
+                                            >
+                                                <span>🇮🇩</span>
+                                                <span>ID</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSTTLang('en-US')}
+                                                className={`px-2 py-1 rounded font-medium transition-colors flex items-center gap-1 ${
+                                                    sttLang === 'en-US'
+                                                        ? 'bg-purple-600 text-white shadow-sm'
+                                                        : 'text-white/60 hover:text-white'
+                                                }`}
+                                                title="Detect English Only"
+                                            >
+                                                <span>🇬🇧</span>
+                                                <span>EN</span>
+                                            </button>
+                                        </div>
+
+                                        {/* Toggle STT Active Button */}
+                                        <button
+                                            type="button"
+                                            onClick={handleToggleSTT}
+                                            className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                                isSTTActive
+                                                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30'
+                                                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30'
+                                            }`}
+                                        >
+                                            {isSTTActive ? (
+                                                <>
+                                                    <MicOff className="size-3.5" />
+                                                    <span>Jeda Deteksi Suara</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Mic className="size-3.5" />
+                                                    <span>Mulai Deteksi Suara</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </>
                                 ) : (
                                     <span className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-md">
                                         Browser belum mendukung Web Speech API
@@ -870,10 +962,20 @@ export default function RoomShow({
                                     <MessageSquare className="size-3.5 text-purple-300" />
                                     <span>Teks Transkrip Suara (Siap dikirim ke AI)</span>
                                 </label>
-                                {isSTTListening && (
-                                    <span className="flex items-center gap-1.5 text-emerald-400 font-medium animate-pulse">
-                                        <span className="size-2 rounded-full bg-emerald-400" />
-                                        Mendengarkan ucapan mikrofon...
+                                {isSTTActive && (
+                                    <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                                        <span className={`size-2 rounded-full bg-emerald-400 ${isSTTListening ? 'animate-pulse' : 'opacity-60'}`} />
+                                        <span>
+                                            {isSTTListening
+                                                ? `Mendengarkan (${
+                                                      sttLang === 'mixed'
+                                                          ? '🌐 Campuran Jaksel ID-EN'
+                                                          : sttLang === 'en-US'
+                                                          ? '🇬🇧 English'
+                                                          : '🇮🇩 Indonesia'
+                                                  })...`
+                                                : `Siap mendeteksi ucapan...`}
+                                        </span>
                                     </span>
                                 )}
                             </div>
@@ -881,7 +983,8 @@ export default function RoomShow({
                             <div className="relative">
                                 <textarea
                                     value={
-                                        transcriptDraft + (interimTranscript ? ` [${interimTranscript}]` : '')
+                                        transcriptDraft +
+                                        (interimTranscript ? (transcriptDraft ? ' ' : '') + interimTranscript : '')
                                     }
                                     onChange={(e) => setTranscriptDraft(e.target.value)}
                                     rows={3}
@@ -891,8 +994,13 @@ export default function RoomShow({
                             </div>
 
                             <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                                <div className="text-xs text-white/50">
-                                    Tekan <strong>Kirim Pesan ke AI</strong> untuk memproses ucapan ini sebagai prompt pertanyaan lanjutan.
+                                <div className="text-xs text-white/50 flex flex-col gap-0.5">
+                                    <span>Tekan <strong>Kirim Pesan ke AI</strong> untuk memproses ucapan ini sebagai prompt pertanyaan lanjutan.</span>
+                                    {sttLang === 'mixed' && (
+                                        <span className="text-[11px] text-purple-300/80">
+                                            ✨ Mode Jaksel aktif: Kosakata campur bahasa Inggris (which is, basically, deadline, concern, insight, dll.) otomatis disesuaikan.
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button

@@ -22,4 +22,9 @@ class InterviewRoom extends Model
     {
         return $this->hasMany(InterviewRecording::class, 'interview_room_id');
     }
+
+    public function messages()
+    {
+        return $this->hasMany(InterviewMessage::class, 'interview_room_id');
+    }
 }
