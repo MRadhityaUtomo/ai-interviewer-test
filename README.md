@@ -17,6 +17,7 @@ Buka `http://localhost:8000`. Akun demo ada di `database/seeders/DatabaseSeeder.
 
 Lihat folder [docs/](docs/README.md):
 
+- [Roadmap](docs/ROADMAP.md)
 - [Arsitektur & struktur folder](docs/ARCHITECTURE.md)
 - [Flow diagram](docs/FLOWS.md)
 - [Database](docs/DATABASE.md)

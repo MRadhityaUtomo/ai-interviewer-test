@@ -4,6 +4,7 @@ Platform interview kerja online yang nantinya dipandu AI (Alibaba Qwen).
 
 | Dokumen | Isi |
 | --- | --- |
+| [ROADMAP.md](ROADMAP.md) | Roadmap per fase dengan checkbox (format siap impor ke Notion) |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Tech stack, diagram sistem, struktur folder, komponen backend & frontend, role |
 | [FLOWS.md](FLOWS.md) | Flow diagram: alur bisnis, login, room, presence, WebRTC, STT → AI, proctoring, rekaman |
 | [DATABASE.md](DATABASE.md) | Lokasi database, ERD, penjelasan tabel, rencana tabel baru |

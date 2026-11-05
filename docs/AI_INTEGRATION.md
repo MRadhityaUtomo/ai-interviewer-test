@@ -80,7 +80,8 @@ Jika output tidak valid, provider gagal, atau API key kosong, sistem melempar `A
 | **Fine-tuning** | Gaya wawancara masih belum sesuai | Lihat kendala di bawah |
 
 **Kendala:**
-- Model ASR (suara) Qwen **belum terkonfirmasi mendukung Bahasa Indonesia**. Karena itu STT tetap memakai browser.
+- **Qwen3-ASR** versi open-source mendukung Bahasa Indonesia, tetapi dukungan di **API Model Studio** untuk region akun kalian masih perlu dicek. Sampai terbukti lebih akurat, STT tetap memakai browser.
+- **Qwen TTS** belum terlihat mendukung Bahasa Indonesia. Untuk suara AI, pakai TTS browser `id-ID` atau penyedia lain.
 - Fine-tuning butuh sekitar **1.000 contoh** berkualitas, ada biaya training dan hosting, dan hanya tersedia untuk model tertentu. Dukungan untuk `qwen-plus` belum pasti.
 - Fine-tuning **tidak andal** untuk menghafal istilah atau fakta. Kalau istilah berubah, model harus dilatih ulang.
 
