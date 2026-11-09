@@ -17,7 +17,7 @@ Temuan dari review kode. Diurutkan per kategori, dengan perkiraan dampak.
 
 | # | Masalah | Lokasi | Saran |
 | --- | --- | --- | --- |
-| F1 | Pesan dari interviewer tersimpan dengan role `applicant`, karena enum hanya `applicant` / `ai_assistant`. Pesan ini ikut terbaca AI sebagai jawaban kandidat | `RoomController::sendMessage`, migration `interview_messages` | Migration baru yang menambah `interviewer`, lalu simpan `$role` |
+| ~~F1~~ | ✅ Selesai: pesan interviewer kini disimpan dengan role `interviewer` dan tidak dikirim ke AI | `RoomController::sendMessage`, migration `2026_11_09_…` | — |
 | F2 | Panggilan AI sinkron di dalam request. Qwen bisa butuh beberapa detik dan memblokir worker PHP | `RoomController::sendMessage` | Job queue + broadcast balasan |
 | F3 | Tidak ada cara menutup room (`status` selalu `active`) | `InterviewRoom` | Endpoint "End interview" |
 | F4 | Pelanggaran proctoring hanya di-broadcast, **tidak disimpan** | `RoomViolationController` | Tabel `interview_violations` |
@@ -25,14 +25,14 @@ Temuan dari review kode. Diurutkan per kategori, dengan perkiraan dampak.
 | F6 | Halaman `room/lobby.tsx` (cek perangkat) tidak dipakai route mana pun | `resources/js/pages/room/lobby.tsx` | Pasang sebelum `room/show` atau hapus |
 | F7 | Batas 2 peserta. Belum mendukung multi-applicant | `RoomPresenceService` | Lihat [AI_INTEGRATION.md](AI_INTEGRATION.md#multi-applicant-dalam-satu-sesi) |
 | F8 | Menghapus room tidak menghapus file rekaman di disk | `interview_recordings` | Hapus file di event `deleting` |
-| F9 | Tidak ada cara membuat akun interviewer dari UI | Registrasi Fortify | Halaman admin atau perintah artisan |
+| F9 | Akun interviewer hanya bisa dibuat lewat perintah artisan (`interviewer:create`), belum ada halaman admin | Registrasi Fortify | Halaman admin saat tim HR non-teknis perlu mengelola akun |
 | F10 | Hanya STUN publik Google, tanpa TURN server. WebRTC bisa gagal tersambung di jaringan kantor atau NAT ketat | `use-webrtc` (`iceServers`) | Tambah TURN server (misal coturn), konfigurasi lewat `.env` |
 
 ## Kualitas Kode
 
 | # | Masalah | Saran |
 | --- | --- | --- |
-| Q1 | `room/show.tsx` sangat besar (±1.270 baris) dan menggabungkan video, STT, chat, rekaman, dan proctoring | Pecah ke komponen: `VideoTiles`, `TranscriptPanel`, `RecordingDialog`, dst. |
-| Q2 | `room/show.tsx` belum lolos `vp check` (format) | Jalankan `npm run check:fix` setelah perubahan STT di-commit |
+| ~~Q1~~ | ✅ Selesai: panel transkrip, dialog rekaman, dan tombol kontrol dipisah ke `components/room/` | — |
+| ~~Q2~~ | ✅ Selesai: `room/show.tsx` lolos `vp check` | — |
 | Q3 | Dua alur interview terpisah (`/interview` berbasis session dan room) | Pilih satu, lalu hapus yang lain |
 | Q4 | `README.md` di root kosong | Sudah diisi ringkasan + tautan ke `docs/` |

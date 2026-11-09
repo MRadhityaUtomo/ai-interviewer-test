@@ -67,7 +67,7 @@ flowchart TD
     H -- applicant --> J[Form kode room + Join]
 ```
 
-Registrasi lewat UI selalu menghasilkan role `applicant`. Interviewer dibuat lewat seeder atau database.
+Registrasi lewat UI selalu menghasilkan role `applicant`. Interviewer dibuat dengan `php artisan interviewer:create`.
 
 ## 3. Membuat & join room
 

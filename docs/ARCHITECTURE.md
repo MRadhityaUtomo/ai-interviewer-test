@@ -187,4 +187,4 @@ Semua hook berada di `resources/js/hooks/` dan dirangkai di `pages/room/show.tsx
 | Panel host, rekaman, dan review | ✅ | ❌ |
 | Mendapat balasan AI saat kirim pesan | ❌ | ✅ |
 
-User baru dari halaman registrasi otomatis mendapat role `applicant` (default kolom). Akun interviewer saat ini dibuat lewat seeder atau langsung di database.
+User baru dari halaman registrasi otomatis mendapat role `applicant` (default kolom). Akun interviewer dibuat dengan perintah `php artisan interviewer:create` (lihat [SETUP.md](SETUP.md#membuat-akun-interviewer)).

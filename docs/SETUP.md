@@ -36,6 +36,26 @@ docker compose exec laravel.test php artisan storage:link
 
 Buka **http://localhost:8000**. Seeder membuat dua akun terverifikasi, yaitu **interviewer** dan **applicant**. Email dan password-nya ada di [database/seeders/DatabaseSeeder.php](../database/seeders/DatabaseSeeder.php).
 
+### Membuat akun interviewer
+
+Registrasi lewat halaman web selalu menghasilkan akun **applicant**. Akun interviewer dibuat lewat perintah ini (akun langsung terverifikasi):
+
+```bash
+docker compose exec laravel.test php artisan interviewer:create
+```
+
+Perintah ini menanyakan email, nama, dan password. Untuk script atau deploy, semuanya bisa diberikan sekaligus:
+
+```bash
+docker compose exec laravel.test php artisan interviewer:create --name="Rina HR" --email=rina@example.com --password=rahasia123
+```
+
+Kalau email sudah terdaftar sebagai applicant, perintah ini menawarkan untuk mengubahnya menjadi interviewer. Tanpa mode interaktif, tambahkan `--promote`:
+
+```bash
+docker compose exec laravel.test php artisan interviewer:create --email=rina@example.com --promote
+```
+
 ### Sehari-hari
 
 | Kebutuhan | Perintah |

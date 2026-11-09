@@ -92,7 +92,7 @@ Jika output tidak valid, provider gagal, atau API key kosong, sistem melempar `A
 | Tinggi | Glosarium istilah perusahaan (prompt + normalizer) |
 | Tinggi | Konteks interview per room: posisi, job description, jumlah pertanyaan |
 | Tinggi | Panggilan AI lewat **queue**, balasan dikirim lewat Reverb, supaya request tidak menggantung saat Qwen lambat |
-| Tinggi | Perbaikan role `interviewer` di `interview_messages` |
+| ~~Tinggi~~ | ✅ Perbaikan role `interviewer` di `interview_messages` |
 | Sedang | Evaluasi akhir: skor, kelebihan, kekurangan, ringkasan (`interview_results`) |
 | Sedang | Dashboard review recruiter |
 | Sedang | Rate limit per room/applicant |
