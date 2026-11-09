@@ -29,7 +29,18 @@ export default defineConfig({
         }),
     ]),
     server: {
+        // Transform the entry points while Vite starts instead of on the first page
+        // visit, which otherwise shows a blank page for ~30s in Docker on Windows.
+        warmup: {
+            clientFiles: [
+                './resources/js/app.tsx',
+                './resources/css/app.css',
+                './resources/js/pages/**/*.tsx',
+            ],
+        },
         watch: {
+            // Set by compose.yaml: file events from a Windows bind mount don't reach the container.
+            usePolling: process.env.VITE_USE_POLLING === 'true',
             ignored: [
                 '**/.agents/**',
                 '**/.claude/**',

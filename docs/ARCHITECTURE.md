@@ -34,7 +34,7 @@ Dokumen ini menjelaskan teknologi yang dipakai, komponen utama, dan letak setiap
 | Speech-to-text | Web Speech API browser (`SpeechRecognition`) |
 | AI | `AiProviderInterface` → `FakeAiProvider` / `QwenProvider` (DashScope, OpenAI-compatible) |
 | Database | SQLite (lokal), bisa diganti PostgreSQL/MySQL |
-| Cache / session / queue | Driver `database` |
+| Cache / session / queue | **Redis** (DB 0 untuk session, DB 1 untuk cache). Signal WebRTC di-broadcast langsung (`ShouldBroadcastNow`), tidak lewat queue |
 | Penyimpanan file | Disk `public` (`storage/app/public`) |
 | Testing & kualitas | Pest, PHPStan (Larastan), Pint, `vp check` |
 

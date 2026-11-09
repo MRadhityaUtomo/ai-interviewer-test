@@ -4,23 +4,25 @@
 
 | Lingkungan | Database |
 | --- | --- |
-| Lokal (development) | SQLite, file `database/database.sqlite` (tidak di-commit) |
+| Lokal (development) | **PostgreSQL 18 di Docker** (service `pgsql`, volume `pgsql-data`). Dari host: `127.0.0.1:5433`, database `ai_int_test` |
 | Tes (Pest) | SQLite `:memory:`, hilang setelah tes selesai |
-| Production (rencana) | PostgreSQL, sesuai [spesifikasi](../AI_INTERVIEW_SPECIFICATIONS.md). Cukup ubah `DB_*` di `.env` lalu jalankan `php artisan migrate` |
+| Production (rencana) | PostgreSQL, sesuai [spesifikasi](../AI_INTERVIEW_SPECIFICATIONS.md) |
+
+File lama `database/database.sqlite` masih ada, tetapi tidak dipakai lagi.
 
 Struktur tabel berasal dari migration di [database/migrations](../database/migrations). **Perubahan struktur selalu dibuat lewat migration baru**, bukan dengan mengedit tabel langsung.
 
 Cara melihat struktur:
 
 ```bash
-php artisan db:show
+docker compose exec laravel.test php artisan db:show
 ```
 
 ```bash
-php artisan db:table interview_messages
+docker compose exec laravel.test php artisan db:table interview_messages
 ```
 
-Untuk tampilan visual, buka `database/database.sqlite` dengan DB Browser for SQLite, TablePlus, DBeaver, atau ekstensi SQLite Viewer di VS Code.
+Untuk tampilan visual, sambungkan DBeaver, TablePlus, atau pgAdmin ke `127.0.0.1:5433` (user dan password ada di `.env`).
 
 ## ERD
 
@@ -108,9 +110,9 @@ Metadata rekaman video. File aslinya ada di `storage/app/public/{file_path}`.
 
 | Tabel | Kegunaan |
 | --- | --- |
-| `sessions` | Session login (`SESSION_DRIVER=database`) |
-| `cache`, `cache_locks` | Cache, termasuk data presence room (`CACHE_STORE=database`) |
-| `jobs`, `job_batches`, `failed_jobs` | Antrian queue (`QUEUE_CONNECTION=database`) |
+| `sessions` | Tidak dipakai: session ada di Redis (`SESSION_DRIVER=redis`). Tabel disimpan untuk fallback |
+| `cache`, `cache_locks` | Tidak dipakai: cache ada di Redis (`CACHE_STORE=redis`) |
+| `jobs`, `job_batches` / `failed_jobs` | Antrian ada di Redis (`QUEUE_CONNECTION=redis`); `failed_jobs` tetap dipakai untuk mencatat job yang gagal |
 | `password_reset_tokens` | Reset password |
 | `passkeys` | Login passkey (WebAuthn) |
 | `migrations` | Catatan migration yang sudah dijalankan |
@@ -119,7 +121,7 @@ Metadata rekaman video. File aslinya ada di `storage/app/public/{file_path}`.
 
 | Data | Lokasi |
 | --- | --- |
-| Peserta aktif room | Cache key `interview-room-presence:{CODE}`, TTL 45 detik |
+| Peserta aktif room | Redis (DB 1), key `…cache-interview-room-presence:{CODE}`, TTL 45 detik |
 | File video rekaman | `storage/app/public/recordings/{CODE}/rec_{CODE}_{waktu}_{acak}.webm` |
 | File audio untuk AI | `storage/app/public/audio/{CODE}/audio_ai_{CODE}_{waktu}_{acak}.webm` |
 | Prototype `/interview` | Session key `prototype_interview` (tidak masuk tabel) |

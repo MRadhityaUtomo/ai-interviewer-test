@@ -5,7 +5,7 @@
 | 👤 Owner | Muhammad Radhitya Utomo |
 | 📌 Status | 🟡 In progress: fondasi selesai, AI menunggu akses model |
 | 🧱 Tech stack | Laravel 13 · Inertia + React 19 + TypeScript · Reverb (WebSocket) · WebRTC · Web Speech API · Qwen (Alibaba) |
-| 🗓️ Terakhir diperbarui | 5 Nov 2026 |
+| 🗓️ Terakhir diperbarui | 9 Nov 2026 |
 | 🔗 Dokumen terkait | [Arsitektur](ARCHITECTURE.md) · [Flow](FLOWS.md) · [Database](DATABASE.md) · [Integrasi AI](AI_INTEGRATION.md) · [Known issues](KNOWN_ISSUES.md) |
 
 > 💡 **Tujuan:** website interview kerja di mana **AI berperan sebagai pewawancara**. AI mengajukan pertanyaan dalam Bahasa Indonesia, mendengarkan jawaban kandidat lewat suara, lalu menghasilkan penilaian yang direview recruiter.
@@ -25,9 +25,9 @@
 - [x] Lapisan AI siap pakai (`FakeAiProvider` → `QwenProvider`), tinggal isi API key
 - [x] Dokumentasi proyek (`docs/`)
 - [ ] **AI sungguhan**: menunggu akses model Qwen
-- [ ] Database masih **SQLite lokal** di laptop
+- [x] Database pindah ke **PostgreSQL** (di Docker, masih di laptop)
 - [ ] **Belum di-deploy**
-- [ ] Menjalankan aplikasi masih manual (server, Reverb, queue, Vite)
+- [x] Menjalankan aplikasi dengan **satu perintah**: `docker compose up -d` (app, Reverb, queue, Vite, PostgreSQL, Redis)
 
 > ℹ️ Untuk development, keempat proses itu sudah bisa dijalankan dengan **satu perintah**: `composer run dev`. Di production, `npm run dev` tidak dipakai lagi: frontend cukup di-*build* sekali (`npm run build`), dan proses lain dijalankan otomatis oleh server (lihat Fase 5).
 
@@ -37,7 +37,7 @@
 
 | Fase | Fokus | Butuh API Qwen? | Status |
 | --- | --- | :---: | --- |
-| 0 | Fondasi: PostgreSQL, keamanan, perbaikan bug | ❌ | 🔲 Belum mulai |
+| 0 | Fondasi: PostgreSQL, keamanan, perbaikan bug | ❌ | 🟡 Berjalan: PostgreSQL & Docker dev selesai |
 | 1 | Alur percakapan AI: giliran bicara, TTS, queue | ❌ | 🔲 Belum mulai |
 | 2 | Uji bahasa Indonesia & keputusan training | ✅ | ⏸️ Menunggu akses |
 | 3 | Integrasi Qwen sungguhan | ✅ | ⏸️ Menunggu akses |
@@ -54,10 +54,10 @@
 **Tujuan:** aplikasi aman dan siap dipakai lebih dari satu orang.
 
 ### Database
-- [ ] Install PostgreSQL (lokal atau Docker)
-- [ ] Ubah `.env` → `DB_CONNECTION=pgsql`, lalu `php artisan migrate:fresh --seed`
-- [ ] Update `.env.example` dengan konfigurasi PostgreSQL
-- [ ] Pindahkan cache, session, dan queue ke **Redis**, supaya presence heartbeat dan queue tidak membebani database
+- [x] Install PostgreSQL: PostgreSQL 18 di Docker (service `pgsql`, port host `5433`)
+- [x] Ubah `.env` → `DB_CONNECTION=pgsql`, lalu migrate + seed (semua migration jalan di PostgreSQL)
+- [x] Update `.env.example` dengan konfigurasi PostgreSQL
+- [x] Pindahkan cache, session, dan queue ke **Redis**. Signal WebRTC sekalian dibuat `ShouldBroadcastNow` agar tidak menunggu worker queue
 - [ ] CI: tambah job tes dengan PostgreSQL (tes lokal tetap boleh SQLite `:memory:`)
 
 > ❓ **Kenapa sekarang?** Data saat ini hanya data uji, jadi biaya pindahnya hampir nol. SQLite akan sering *locked* begitu ada queue AI dan banyak applicant menulis bersamaan.
@@ -268,6 +268,7 @@ flowchart TD
 
 ### Checklist
 - [ ] Putuskan opsi hosting (A/B/C) dan anggaran server
+- [x] Docker Compose untuk **development** (`compose.yaml` + `docker/Dockerfile`), sebagai dasar versi production
 - [ ] Dockerfile production (PHP 8.3+, ekstensi `pdo_pgsql`, `redis`) + `docker-compose.yml`: `app`, `reverb`, `queue`, `scheduler`, `postgres`, `redis`, `coturn`
 - [ ] Domain + sertifikat HTTPS (Let's Encrypt)
 - [ ] Reverb di belakang reverse proxy dengan **WSS**

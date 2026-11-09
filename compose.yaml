@@ -1,74 +1,148 @@
-services:
+# Local development stack: `docker compose up -d`, then open http://localhost:${APP_PORT:-8000}
+#
+# The PHP services read .env, but the variables under `x-php-env` override the
+# host-oriented values in .env (127.0.0.1, forwarded ports) with the internal
+# Docker hostnames. That keeps .env usable both inside Docker and from the host.
+
+# Only laravel.test builds the image (docker/Dockerfile); the other services reuse it.
+x-app-image: &app-image
+    image: ai-int-test/app
+    pull_policy: never
+    restart: unless-stopped
+    extra_hosts:
+        - 'host.docker.internal:host-gateway'
+    volumes:
+        - '.:/var/www/html'
+        # vendor lives in a Docker volume: reading it through the Windows bind
+        # mount made every request take ~9s. After changing composer.json run:
+        #   docker compose exec laravel.test composer install
+        - 'vendor:/var/www/html/vendor'
+    networks:
+        - sail
+
+x-php-env: &php-env
+    DB_HOST: pgsql
+    DB_PORT: 5432
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+    REVERB_HOST: reverb
+    REVERB_PORT: 8080
+    REVERB_SCHEME: http
+
+x-php-depends: &php-depends
+    pgsql:
+        condition: service_healthy
+    redis:
+        condition: service_healthy
+
+# reverb, queue and vite wait for the app (which installs vendor on first start).
+# restart: true brings them back when laravel.test is recreated; without it,
+# `docker compose up -d laravel.test` stopped vite and left the page blank.
+x-needs-app: &needs-app
     laravel.test:
+        condition: service_healthy
+        restart: true
+
+services:
+    # Web app (php artisan serve)
+    laravel.test:
+        <<: *app-image
+        pull_policy: missing
         build:
-            context: ./vendor/laravel/sail/runtimes/8.5
-            dockerfile: Dockerfile
-            args:
-                WWWGROUP: '${WWWGROUP}'
-        image: sail-8.5/app
-        extra_hosts:
-            - 'host.docker.internal:host-gateway'
+            context: ./docker
+        # Installs PHP dependencies into the vendor volume on first start
+        command: bash -c "[ -f vendor/autoload.php ] || composer install --no-interaction --no-progress; exec php artisan serve --host=0.0.0.0 --port=80 --no-reload"
         ports:
-            - '${APP_PORT:-80}:80'
+            - '${APP_PORT:-8000}:80'
+        environment:
+            <<: *php-env
+            # artisan serve handles one request at a time by default; heartbeats,
+            # uploads and page loads would queue behind each other
+            PHP_CLI_SERVER_WORKERS: 4
+        depends_on: *php-depends
+        healthcheck:
+            test: ['CMD', 'php', '-r', 'exit(@file_get_contents("http://127.0.0.1/up") === false ? 1 : 0);']
+            interval: 5s
+            timeout: 30s
+            retries: 60
+            start_period: 30s
+
+    # WebSocket server for WebRTC signaling and broadcasts
+    reverb:
+        <<: *app-image
+        command: php artisan reverb:start --host=0.0.0.0 --port=8080
+        ports:
+            - '${FORWARD_REVERB_PORT:-8080}:8080'
+        environment: *php-env
+        depends_on: *needs-app
+
+    # Queue worker; queue:listen reloads code on every job
+    queue:
+        <<: *app-image
+        command: php artisan queue:listen --tries=1 --timeout=0
+        environment: *php-env
+        depends_on: *needs-app
+
+    # Vite dev server. node_modules lives in a Linux-only volume because the
+    # host's node_modules holds Windows native binaries. Dependencies are installed
+    # from package-lock.json on first start; after changing them run:
+    #   docker compose run --rm vite npm ci
+    vite:
+        <<: *app-image
+        command: bash -c "[ -f node_modules/.package-lock.json ] || npm ci --no-audit --no-fund; npm run dev"
+        ports:
             - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
         environment:
-            WWWUSER: '${WWWUSER}'
+            # Makes laravel-vite-plugin listen on 0.0.0.0 and point the browser at localhost
             LARAVEL_SAIL: 1
-            XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
-            XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
-            IGNITION_LOCAL_SITES_PATH: '${PWD}'
+            VITE_PORT: '${VITE_PORT:-5173}'
+            VITE_USE_POLLING: 'true'
         volumes:
             - '.:/var/www/html'
-        networks:
-            - sail
-        depends_on:
-            - mysql
-            - redis
-    mysql:
-        image: 'mysql:8.4'
+            - 'vendor:/var/www/html/vendor'
+            - 'node-modules:/var/www/html/node_modules'
+        depends_on: *needs-app
+
+    pgsql:
+        image: 'postgres:18-alpine'
+        restart: unless-stopped
         ports:
-            - '${FORWARD_DB_PORT:-3306}:3306'
+            - '${FORWARD_DB_PORT:-5433}:5432'
         environment:
-            MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
-            MYSQL_ROOT_HOST: '%'
-            MYSQL_DATABASE: '${DB_DATABASE}'
-            MYSQL_USER: '${DB_USERNAME}'
-            MYSQL_PASSWORD: '${DB_PASSWORD}'
-            MYSQL_ALLOW_EMPTY_PASSWORD: 1
-            MYSQL_EXTRA_OPTIONS: '${MYSQL_EXTRA_OPTIONS:-}'
+            POSTGRES_DB: '${DB_DATABASE:-ai_int_test}'
+            POSTGRES_USER: '${DB_USERNAME:-sail}'
+            POSTGRES_PASSWORD: '${DB_PASSWORD:-password}'
         volumes:
-            - 'sail-mysql:/var/lib/mysql'
-            - './vendor/laravel/sail/database/mysql/create-testing-database.sh:/docker-entrypoint-initdb.d/10-create-testing-database.sh'
+            - 'pgsql-data:/var/lib/postgresql'
         networks:
             - sail
         healthcheck:
-            test:
-                - CMD
-                - mysqladmin
-                - ping
-                - '-p${DB_PASSWORD}'
-            retries: 3
+            test: ['CMD', 'pg_isready', '-q', '-d', '${DB_DATABASE:-ai_int_test}', '-U', '${DB_USERNAME:-sail}']
+            interval: 5s
+            retries: 10
             timeout: 5s
+
     redis:
         image: 'redis:alpine'
+        restart: unless-stopped
         ports:
             - '${FORWARD_REDIS_PORT:-6379}:6379'
         volumes:
-            - 'sail-redis:/data'
+            - 'redis-data:/data'
         networks:
             - sail
         healthcheck:
-            test:
-                - CMD
-                - redis-cli
-                - ping
-            retries: 3
+            test: ['CMD', 'redis-cli', 'ping']
+            interval: 5s
+            retries: 10
             timeout: 5s
+
 networks:
     sail:
         driver: bridge
+
 volumes:
-    sail-mysql:
-        driver: local
-    sail-redis:
-        driver: local
+    pgsql-data:
+    redis-data:
+    vendor:
+    node-modules:

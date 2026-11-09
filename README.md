@@ -4,14 +4,17 @@ Platform interview kerja online berbasis Laravel 13 + Inertia React: video call 
 
 ## Mulai Cepat
 
+Butuh Docker Desktop. Seluruh stack (app, Reverb, queue, Vite, PostgreSQL, Redis) jalan lewat `compose.yaml`.
+
 ```bash
-composer run setup
-php artisan db:seed
-php artisan storage:link
-composer run dev
+cp .env.example .env
+docker compose up -d --build
+docker compose exec laravel.test php artisan key:generate
+docker compose exec laravel.test php artisan migrate --seed
+docker compose exec laravel.test php artisan storage:link
 ```
 
-Buka `http://localhost:8000`. Akun demo ada di `database/seeders/DatabaseSeeder.php`.
+Buka `http://localhost:8000`. Akun demo ada di `database/seeders/DatabaseSeeder.php`. Selanjutnya cukup `docker compose up -d`. Detail ada di [docs/SETUP.md](docs/SETUP.md).
 
 ## Dokumentasi
 
