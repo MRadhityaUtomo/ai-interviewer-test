@@ -17,7 +17,7 @@ export function useLocalMedia() {
             if (!navigator.mediaDevices?.getUserMedia) {
                 setStatus('unsupported');
                 setError(
-                    'This browser does not support camera and microphone access.',
+                    'Browser ini tidak mendukung akses kamera dan mikrofon.',
                 );
                 return;
             }
@@ -45,8 +45,8 @@ export function useLocalMedia() {
                 setError(
                     mediaError instanceof DOMException &&
                         mediaError.name === 'NotAllowedError'
-                        ? 'Camera or microphone permission was denied.'
-                        : 'Unable to access the camera or microphone.',
+                        ? 'Izin kamera atau mikrofon ditolak.'
+                        : 'Tidak dapat mengakses kamera atau mikrofon.',
                 );
             }
         }

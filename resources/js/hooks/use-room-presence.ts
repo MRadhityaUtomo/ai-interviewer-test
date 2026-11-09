@@ -41,9 +41,7 @@ export function useRoomPresence({
 
             if (!response.ok && endpoint === 'heartbeat') {
                 setIsAllowed(false);
-                setError(
-                    'This room is full. Only two participants are allowed.',
-                );
+                setError('Room penuh. Hanya dua peserta yang diizinkan.');
             }
 
             if (typeof result.count === 'number') {

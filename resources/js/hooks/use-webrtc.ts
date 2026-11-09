@@ -203,7 +203,7 @@ export function useWebRTC({
                 setError(
                     webrtcError instanceof Error
                         ? webrtcError.message
-                        : 'WebRTC connection failed.',
+                        : 'Koneksi video gagal.',
                 );
             }
         },
@@ -231,7 +231,7 @@ export function useWebRTC({
             setError(
                 webrtcError instanceof Error
                     ? webrtcError.message
-                    : 'Unable to start the call.',
+                    : 'Tidak dapat memulai panggilan.',
             );
         }
     }, [createPeer, isCaller, localStream, sendRoomSignal]);
@@ -243,7 +243,7 @@ export function useWebRTC({
             setError(
                 hangUpError instanceof Error
                     ? hangUpError.message
-                    : 'Unable to notify the other participant.',
+                    : 'Tidak dapat memberi tahu peserta lain.',
             );
         } finally {
             localStream?.getTracks().forEach((track) => track.stop());

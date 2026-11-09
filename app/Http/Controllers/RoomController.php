@@ -128,7 +128,7 @@ class RoomController extends Controller
             'interview_room_id' => $room->id,
             'room_code' => $room->room_code,
             'user_id' => $request->user()->id,
-            'role' => 'applicant',
+            'role' => $role,
             'message' => $validated['message'],
         ]);
 

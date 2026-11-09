@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\InterviewMessage;
 use App\Models\InterviewRoom;
 use App\Models\User;
+use App\Services\Ai\AiProviderInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -52,5 +53,59 @@ class RoomMessageTest extends TestCase
 
         $response->assertSessionHasErrors(['message']);
     }
-}
 
+    public function test_interviewer_message_is_stored_as_interviewer_without_ai_reply(): void
+    {
+        $interviewer = User::factory()->create(['role' => 'interviewer']);
+        $room = InterviewRoom::create([
+            'room_code' => 'INT001',
+            'status' => 'active',
+            'user_id' => $interviewer->id,
+        ]);
+
+        $this->actingAs($interviewer)
+            ->post(route('rooms.send-message', $room->room_code), [
+                'message' => 'Catatan: kandidat menjawab dengan jelas.',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(
+            ['interviewer'],
+            InterviewMessage::where('room_code', 'INT001')->pluck('role')->all(),
+        );
+    }
+
+    public function test_ai_history_excludes_interviewer_messages(): void
+    {
+        $fake = new class implements AiProviderInterface
+        {
+            /** @var array<int, array{role: string, content: string}> */
+            public array $received = [];
+
+            public function generateStructuredResponse(string $systemPrompt, array $messages): array
+            {
+                $this->received = $messages;
+
+                return ['reply' => 'Pertanyaan berikutnya.'];
+            }
+        };
+        $this->app->instance(AiProviderInterface::class, $fake);
+
+        $interviewer = User::factory()->create(['role' => 'interviewer']);
+        $applicant = User::factory()->create(['role' => 'applicant']);
+        $room = InterviewRoom::create([
+            'room_code' => 'INT002',
+            'status' => 'active',
+            'user_id' => $interviewer->id,
+        ]);
+
+        $this->actingAs($interviewer)->post(route('rooms.send-message', $room->room_code), [
+            'message' => 'Catatan interviewer.',
+        ]);
+        $this->actingAs($applicant)->post(route('rooms.send-message', $room->room_code), [
+            'message' => 'Jawaban kandidat.',
+        ]);
+
+        $this->assertSame([['role' => 'user', 'content' => 'Jawaban kandidat.']], $fake->received);
+    }
+}

@@ -15,7 +15,9 @@ class InterviewAiService
      */
     public function nextReply(InterviewRoom $room): string
     {
+        // Interviewer notes are for the human reviewer, not part of the AI conversation
         $history = $room->messages()
+            ->whereIn('role', ['applicant', 'ai_assistant'])
             ->latest('id')
             ->limit((int) config('interview.history_limit'))
             ->get(['role', 'message'])
