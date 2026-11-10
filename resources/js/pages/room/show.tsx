@@ -158,7 +158,13 @@ export default function RoomShow({
     });
     useProctoringEvents({ enabled: isApplicant, roomCode: room.code });
 
-    const [isFullscreen, setIsFullscreen] = useState(!isApplicant);
+    // The lobby already enters full screen for applicants; start from the real state
+    const [isFullscreen, setIsFullscreen] = useState(
+        () =>
+            !isApplicant ||
+            (typeof document !== 'undefined' &&
+                document.fullscreenElement !== null),
+    );
     const [fullscreenError, setFullscreenError] = useState<string | null>(null);
     const wasFullscreenRef = useRef(false);
 

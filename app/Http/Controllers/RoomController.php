@@ -9,9 +9,9 @@ use App\Services\Ai\InterviewAiService;
 use App\Services\RoomPresenceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
-use Illuminate\Support\Str;
 
 class RoomController extends Controller
 {
@@ -36,7 +36,7 @@ class RoomController extends Controller
             'user_id' => $request->user()->id,
         ]);
 
-        return redirect()->route('rooms.show', $room->room_code);
+        return redirect()->route('rooms.lobby', $room->room_code);
     }
 
     public function join(Request $request): RedirectResponse
@@ -54,26 +54,32 @@ class RoomController extends Controller
         if (! $room) {
             return back()
                 ->withInput()
-                ->withErrors(['room_code' => 'Room was not found or is already closed.']);
+                ->withErrors(['room_code' => 'Room tidak ditemukan atau sudah ditutup.']);
         }
 
-        return redirect()->route('rooms.show', $room->room_code);
+        return redirect()->route('rooms.lobby', $room->room_code);
+    }
+
+    /**
+     * Camera / microphone check before entering. Does not take a participant slot.
+     */
+    public function lobby(Request $request, string $roomCode): Response
+    {
+        $room = $this->findRoomFor($request, $roomCode);
+
+        return Inertia::render('room/lobby', [
+            'roomCode' => $room->room_code,
+            'participantRole' => $request->user()->role,
+        ]);
     }
 
     public function show(
         Request $request,
         string $roomCode,
         RoomPresenceService $presence,
-    ): Response|RedirectResponse
-    {
-        $room = InterviewRoom::where('room_code', strtoupper($roomCode))
-            ->where('status', 'active')
-            ->firstOrFail();
+    ): Response|RedirectResponse {
+        $room = $this->findRoomFor($request, $roomCode);
         $role = $request->user()->role;
-
-        if ($role === 'interviewer' && $room->user_id !== null && $room->user_id !== $request->user()->id) {
-            abort(403);
-        }
         $participantToken = $request->query('participant_token');
 
         if (! is_string($participantToken) || $participantToken === '') {
@@ -156,5 +162,21 @@ class RoomController extends Controller
         ]);
 
         return back();
+    }
+
+    /**
+     * An active room the current user may enter: applicants any room, interviewers only their own.
+     */
+    private function findRoomFor(Request $request, string $roomCode): InterviewRoom
+    {
+        $room = InterviewRoom::where('room_code', strtoupper($roomCode))
+            ->where('status', 'active')
+            ->firstOrFail();
+
+        if ($request->user()->role === 'interviewer' && $room->user_id !== null && $room->user_id !== $request->user()->id) {
+            abort(403);
+        }
+
+        return $room;
     }
 }

@@ -22,7 +22,7 @@ Temuan dari review kode. Diurutkan per kategori, dengan perkiraan dampak.
 | F3 | Tidak ada cara menutup room (`status` selalu `active`) | `InterviewRoom` | Endpoint "End interview" |
 | F4 | Pelanggaran proctoring hanya di-broadcast, **tidak disimpan** | `RoomViolationController` | Tabel `interview_violations` |
 | F5 | `analyze-audio` hanya menyimpan file, belum ada analisis | `InterviewRecordingController::analyzeAudio` | Sambungkan ke STT/AI server-side jika dibutuhkan |
-| F6 | Halaman `room/lobby.tsx` (cek perangkat) tidak dipakai route mana pun | `resources/js/pages/room/lobby.tsx` | Pasang sebelum `room/show` atau hapus |
+| ~~F6~~ | ✅ Selesai: lobby cek kamera/mic dipasang di `/rooms/{code}/lobby` sebelum masuk room | — | — |
 | F7 | Batas 2 peserta. Belum mendukung multi-applicant | `RoomPresenceService` | Lihat [AI_INTEGRATION.md](AI_INTEGRATION.md#multi-applicant-dalam-satu-sesi) |
 | F8 | Menghapus room tidak menghapus file rekaman di disk | `interview_recordings` | Hapus file di event `deleting` |
 | F9 | Akun interviewer hanya bisa dibuat lewat perintah artisan (`interviewer:create`), belum ada halaman admin | Registrasi Fortify | Halaman admin saat tim HR non-teknis perlu mengelola akun |

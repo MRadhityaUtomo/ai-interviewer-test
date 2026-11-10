@@ -24,7 +24,8 @@ void createInertiaApp({
     layout: (name) => {
         switch (true) {
             case name === 'welcome':
-            // The call screen is full-viewport, without the app sidebar
+            // The device check and call screen are full-viewport, without the app sidebar
+            case name === 'room/lobby':
             case name === 'room/show':
                 return null;
             case name.startsWith('auth/'):

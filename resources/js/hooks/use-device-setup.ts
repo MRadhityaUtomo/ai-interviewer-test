@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { preferredMediaConstraints } from '@/lib/media-preferences';
 
 export type DeviceInfo = {
     deviceId: string;
@@ -25,7 +26,10 @@ export type UseDeviceSetupReturn = {
     stopStream: () => void;
 };
 
-function mapDevices(devices: MediaDeviceInfo[], kind: MediaDeviceKind): DeviceInfo[] {
+function mapDevices(
+    devices: MediaDeviceInfo[],
+    kind: MediaDeviceKind,
+): DeviceInfo[] {
     return devices
         .filter((d) => d.kind === kind)
         .map((d, i) => ({
@@ -101,7 +105,8 @@ export function useDeviceSetup(): UseDeviceSetupReturn {
                 audio: micId ? { deviceId: { exact: micId } } : true,
             };
 
-            const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+            const newStream =
+                await navigator.mediaDevices.getUserMedia(constraints);
             streamRef.current = newStream;
             setStream(newStream);
             startVolumeAnalysis(newStream);
@@ -117,15 +122,17 @@ export function useDeviceSetup(): UseDeviceSetupReturn {
         async function init() {
             if (!navigator.mediaDevices?.getUserMedia) {
                 setStatus('unsupported');
-                setError('This browser does not support camera and microphone access.');
+                setError(
+                    'Browser ini tidak mendukung akses kamera dan mikrofon.',
+                );
                 return;
             }
 
             try {
-                const initialStream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: true,
-                });
+                const initialStream = await navigator.mediaDevices.getUserMedia(
+                    // Start from the devices chosen last time
+                    preferredMediaConstraints(),
+                );
 
                 if (!mounted) {
                     initialStream.getTracks().forEach((t) => t.stop());
@@ -136,7 +143,8 @@ export function useDeviceSetup(): UseDeviceSetupReturn {
                 setStream(initialStream);
                 setStatus('ready');
 
-                const allDevices = await navigator.mediaDevices.enumerateDevices();
+                const allDevices =
+                    await navigator.mediaDevices.enumerateDevices();
                 const cams = mapDevices(allDevices, 'videoinput');
                 const mics = mapDevices(allDevices, 'audioinput');
 
@@ -145,12 +153,18 @@ export function useDeviceSetup(): UseDeviceSetupReturn {
                     setMicrophones(mics);
 
                     const activeVideoId =
-                        initialStream.getVideoTracks()[0]?.getSettings().deviceId ?? '';
+                        initialStream.getVideoTracks()[0]?.getSettings()
+                            .deviceId ?? '';
                     const activeMicId =
-                        initialStream.getAudioTracks()[0]?.getSettings().deviceId ?? '';
+                        initialStream.getAudioTracks()[0]?.getSettings()
+                            .deviceId ?? '';
 
-                    setSelectedCameraState(activeVideoId || cams[0]?.deviceId || '');
-                    setSelectedMicrophoneState(activeMicId || mics[0]?.deviceId || '');
+                    setSelectedCameraState(
+                        activeVideoId || cams[0]?.deviceId || '',
+                    );
+                    setSelectedMicrophoneState(
+                        activeMicId || mics[0]?.deviceId || '',
+                    );
 
                     startVolumeAnalysis(initialStream);
                 }
@@ -158,9 +172,10 @@ export function useDeviceSetup(): UseDeviceSetupReturn {
                 if (!mounted) return;
                 setStatus('denied');
                 setError(
-                    err instanceof DOMException && err.name === 'NotAllowedError'
-                        ? 'Camera or microphone permission was denied.'
-                        : 'Unable to access the camera or microphone.',
+                    err instanceof DOMException &&
+                        err.name === 'NotAllowedError'
+                        ? 'Izin kamera atau mikrofon ditolak.'
+                        : 'Tidak dapat mengakses kamera atau mikrofon.',
                 );
             }
         }

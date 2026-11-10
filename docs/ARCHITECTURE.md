@@ -126,7 +126,7 @@ ai-int-test/
 │   ├── pages/
 │   │   ├── room/index.tsx                # Buat room (interviewer) / join (applicant)
 │   │   ├── room/show.tsx                 # Halaman room utama (video, STT, chat AI, rekaman)
-│   │   ├── room/lobby.tsx                # Cek kamera/mic (belum dipakai route mana pun)
+│   │   ├── room/lobby.tsx                # Cek kamera/mic sebelum masuk room (pilihan perangkat disimpan)
 │   │   ├── room/full.tsx                 # Room sudah penuh
 │   │   ├── interview/session.tsx         # UI prototype interview lama
 │   │   ├── auth/*, settings/*            # Halaman Fortify & pengaturan

@@ -83,7 +83,7 @@ sequenceDiagram
     IV->>RC: POST /rooms
     RC->>RC: cek role = interviewer (403 jika bukan)
     RC->>DB: buat interview_rooms (kode unik, status active)
-    RC-->>IV: redirect /rooms/{CODE}
+    RC-->>IV: redirect /rooms/{CODE}/lobby
 
     AP->>RC: POST /room/join {room_code}
     RC->>RC: cek role = applicant
@@ -91,10 +91,10 @@ sequenceDiagram
     alt tidak ditemukan
         RC-->>AP: error "Room was not found or is already closed."
     else ditemukan
-        RC-->>AP: redirect /rooms/{CODE}
+        RC-->>AP: redirect /rooms/{CODE}/lobby
     end
 
-    Note over IV,AP: GET /rooms/{CODE} (untuk keduanya)
+    Note over IV,AP: Lobby: cek kamera/mic, pilih perangkat (tidak memakai slot peserta).<br/>Klik Masuk: perangkat disimpan, applicant masuk layar penuh, lalu GET /rooms/{CODE}
     RC->>RC: tanpa participant_token? → redirect + token acak 40 karakter
     RC->>PS: claim(room, token, role)
     alt sudah ada 2 peserta lain

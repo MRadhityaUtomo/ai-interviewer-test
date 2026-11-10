@@ -13,8 +13,9 @@ Tipe respons: **Inertia** merender halaman React, **Redirect** mengarahkan ke ha
 | Method | URL | Controller | Respons | Keterangan |
 | --- | --- | --- | --- | --- |
 | GET | `/rooms` | `RoomController@index` | Inertia `room/index` | Buat room atau join |
-| POST | `/rooms` | `RoomController@create` | Redirect | Hanya interviewer. Membuat room baru |
-| POST | `/room/join` | `RoomController@join` | Redirect | Hanya applicant. Body: `room_code` (6 karakter) |
+| POST | `/rooms` | `RoomController@create` | Redirect | Hanya interviewer. Membuat room baru, lalu ke lobby |
+| POST | `/room/join` | `RoomController@join` | Redirect | Hanya applicant. Body: `room_code` (6 karakter), lalu ke lobby |
+| GET | `/rooms/{roomCode}/lobby` | `RoomController@lobby` | Inertia `room/lobby` | Cek kamera/mic sebelum masuk. Tidak memakai slot peserta |
 | GET | `/rooms/{roomCode}` | `RoomController@show` | Inertia `room/show` / `room/full` | Menambahkan `participant_token` jika belum ada |
 | POST | `/rooms/{roomCode}/send-message` | `RoomController@sendMessage` | Redirect | Body: `message` (≤2000). Applicant mendapat balasan AI |
 | POST | `/room/{roomCode}/send-message` | sama | Redirect | Alias lama |

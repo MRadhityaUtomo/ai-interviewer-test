@@ -73,7 +73,7 @@
 - [x] Tambah role `interviewer` di `interview_messages`, agar pesan interviewer tidak dibaca AI sebagai jawaban kandidat
 - [ ] Endpoint **End interview**: ubah status room menjadi `closed`
 - [ ] Simpan pelanggaran proctoring ke tabel `interview_violations`
-- [ ] Pasang halaman `room/lobby` (cek kamera/mic) sebelum masuk room
+- [x] Pasang halaman `room/lobby` (cek kamera/mic) sebelum masuk room; pilihan perangkat terbawa ke room, applicant langsung layar penuh
 - [x] Cara membuat akun interviewer: `php artisan interviewer:create`
 - [ ] Halaman admin untuk mengelola akun interviewer (saat tim HR non-teknis membutuhkannya)
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { preferredMediaConstraints } from '@/lib/media-preferences';
 
 type MediaStatus = 'requesting' | 'ready' | 'denied' | 'unsupported';
 
@@ -23,10 +24,9 @@ export function useLocalMedia() {
             }
 
             try {
-                const localStream = await navigator.mediaDevices.getUserMedia({
-                    audio: true,
-                    video: true,
-                });
+                const localStream = await navigator.mediaDevices.getUserMedia(
+                    preferredMediaConstraints(),
+                );
 
                 if (!mounted) {
                     localStream.getTracks().forEach((track) => track.stop());

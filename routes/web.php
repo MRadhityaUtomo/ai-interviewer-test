@@ -16,6 +16,7 @@ Route::middleware('auth')->group(function () {
 	Route::get('rooms', [RoomController::class, 'index'])->name('rooms.index');
 	Route::post('rooms', [RoomController::class, 'create'])->name('rooms.create');
 	Route::post('room/join', [RoomController::class, 'join'])->name('room.join');
+	Route::get('rooms/{roomCode}/lobby', [RoomController::class, 'lobby'])->name('rooms.lobby');
 	Route::get('rooms/{roomCode}', [RoomController::class, 'show'])->name('rooms.show');
 	Route::post('rooms/{roomCode}/signals', [WebRTCSignalController::class, 'store'])->name('rooms.signals.store');
 	Route::post('rooms/{roomCode}/presence/heartbeat', [RoomPresenceController::class, 'heartbeat'])->name('rooms.presence.heartbeat');
