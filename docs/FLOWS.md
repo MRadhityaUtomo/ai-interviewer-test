@@ -95,9 +95,11 @@ sequenceDiagram
     end
 
     Note over IV,AP: Lobby: cek kamera/mic, pilih perangkat (tidak memakai slot peserta).<br/>Klik Masuk: perangkat disimpan, applicant masuk layar penuh, lalu GET /rooms/{CODE}
-    RC->>RC: tanpa participant_token? → redirect + token acak 40 karakter
-    RC->>PS: claim(room, token, role)
-    alt sudah ada 2 peserta lain
+    RC->>RC: belum punya cookie room valid? → buat kursi di interview_participants + cookie room_participant (HttpOnly, path /rooms/{CODE})
+    RC->>PS: claim(room, user, role)
+    alt kursi kandidat sudah dipakai applicant lain
+        RC-->>AP: render room/full
+    else sudah ada 2 peserta lain
         RC-->>AP: render room/full
     else diizinkan
         RC->>DB: ambil interview_messages room
@@ -115,7 +117,7 @@ sequenceDiagram
     participant K as Cache<br/>interview-room-presence:{CODE}
 
     loop setiap 15 detik selama di room
-        B->>C: POST /rooms/{CODE}/presence/heartbeat {participant_token}
+        B->>C: POST /rooms/{CODE}/presence/heartbeat (cookie room_participant)
         C->>S: heartbeat()
         S->>K: buang peserta yang last_seen > 45 detik
         alt token baru & sudah 2 peserta
@@ -143,7 +145,7 @@ sequenceDiagram
     participant R as Reverb<br/>channel room.{CODE}
     participant A as Browser Applicant
 
-    Note over I,A: Keduanya subscribe channel publik room.{CODE}
+    Note over I,A: Keduanya subscribe channel privat room.{CODE} (diotorisasi lewat /broadcasting/auth)
     I->>I: createOffer() + setLocalDescription
     I->>L: POST /signals {type: offer, sdp}
     L->>L: validasi: offer hanya oleh interviewer
@@ -185,7 +187,7 @@ sequenceDiagram
     participant RC as RoomController::sendMessage
     participant DB as interview_messages
     participant AI as InterviewAiService
-    participant P as AiProvider<br/>(Fake / Qwen)
+    participant P as AiProvider<br/>(Fake / Ollama / Qwen)
 
     AP->>STT: berbicara
     STT-->>UI: interimTranscript (subtitle live)
@@ -217,6 +219,8 @@ sequenceDiagram
 flowchart TD
     A[Container meminta AiProviderInterface] --> B{config services.ai.provider<br/>env AI_PROVIDER}
     B -- fake / default --> C[FakeAiProvider<br/>balasan dummy]
+    B -- ollama --> OL[QwenProvider<br/>base_url Ollama lokal, tanpa API key]
+    OL --> F
     B -- qwen --> D[QwenProvider]
     D --> E{DASHSCOPE_API_KEY ada?}
     E -- Tidak --> X[AiProviderException]

@@ -1,4 +1,4 @@
-import { echo, useEchoPublic } from '@laravel/echo-react';
+import { echo, useEcho } from '@laravel/echo-react';
 import { useCallback } from 'react';
 
 export type SignalingType =
@@ -20,10 +20,14 @@ export function useRoomSignaling(
 ) {
     const channel = `room.${roomCode}`;
 
-    useEchoPublic<SignalingPayload>(channel, 'WebRTCSignal', onSignal, [
-        roomCode,
+    // Private channel: Reverb only lets in users seated in this room
+    useEcho<SignalingPayload>(
+        channel,
+        'WebRTCSignal',
         onSignal,
-    ]);
+        [roomCode, onSignal],
+        'private',
+    );
 
     const sendSignal = useCallback(
         async (type: SignalingType, data: Record<string, unknown>) => {

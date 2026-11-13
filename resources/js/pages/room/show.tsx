@@ -58,7 +58,6 @@ import { cn } from '@/lib/utils';
 type RoomProps = {
     room: { code: string; status: string };
     participantRole: string;
-    participantToken: string;
     participantCount: number;
     messages?: InterviewMessageItem[];
 };
@@ -97,7 +96,6 @@ function getCsrfToken(): string {
 export default function RoomShow({
     room,
     participantRole,
-    participantToken,
     participantCount: initialParticipantCount,
     messages = [],
 }: RoomProps) {
@@ -152,10 +150,7 @@ export default function RoomShow({
         participantCount,
         error: presenceError,
         leave,
-    } = useRoomPresence({
-        roomCode: room.code,
-        participantToken,
-    });
+    } = useRoomPresence({ roomCode: room.code });
     useProctoringEvents({ enabled: isApplicant, roomCode: room.code });
 
     // The lobby already enters full screen for applicants; start from the real state

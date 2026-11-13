@@ -143,8 +143,10 @@ Kamera dan mic hanya diizinkan di `localhost` atau HTTPS. Untuk mencoba dari HP 
 | `APP_PORT`, `FORWARD_DB_PORT`, `FORWARD_REVERB_PORT`, `VITE_PORT` | `8000`, `5433`, `8080`, `5173` | Port di host untuk `docker compose` |
 | `BROADCAST_CONNECTION` | `reverb` | WebSocket untuk signaling |
 | `REVERB_APP_KEY`, `REVERB_HOST`, `REVERB_PORT` | `local-key`, `127.0.0.1`, `8080` | Juga diteruskan ke frontend lewat `VITE_REVERB_*` |
+| `SESSION_SECURE_COOKIE` | kosong | **Wajib `true` di production (HTTPS)**, agar cookie login dan cookie room hanya dikirim lewat HTTPS |
 | `SESSION_DRIVER`, `CACHE_STORE`, `QUEUE_CONNECTION` | `redis` | Container memakai host `redis`, dari host `127.0.0.1:6379`. Signal WebRTC tidak lewat queue |
-| `AI_PROVIDER` | `fake` | `fake` = balasan dummy, `qwen` = Alibaba Qwen |
+| `AI_PROVIDER` | `fake` | `fake` = balasan dummy, `ollama` = Qwen open-source lokal (gratis), `qwen` = Alibaba Qwen |
+| `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT` | `http://localhost:11434/v1`, `qwen2.5:3b`, `120` | Container memakai `host.docker.internal:11434`. Lihat [AI_INTEGRATION.md](AI_INTEGRATION.md#pengganti-sementara-ollama-gratis-lokal) |
 | `DASHSCOPE_API_KEY` | kosong | API key Qwen. **Jangan di-commit** |
 | `QWEN_BASE_URL` | endpoint internasional (Singapura) | Ganti ke endpoint China jika akunnya region China |
 | `QWEN_MODEL` | `qwen-plus` | |

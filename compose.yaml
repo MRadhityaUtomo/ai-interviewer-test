@@ -28,6 +28,8 @@ x-php-env: &php-env
     REVERB_HOST: reverb
     REVERB_PORT: 8080
     REVERB_SCHEME: http
+    # Ollama runs on the host (Windows), not in Docker.
+    OLLAMA_BASE_URL: http://host.docker.internal:11434/v1
 
 x-php-depends: &php-depends
     pgsql:

@@ -2,8 +2,8 @@
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -25,9 +25,14 @@ class WebRTCSignal implements ShouldBroadcastNow
         public array $data,
     ) {}
 
+    /**
+     * Private: subscribers must be seated in the room (routes/channels.php).
+     *
+     * @return array<int, PrivateChannel>
+     */
     public function broadcastOn(): array
     {
-        return [new Channel("room.{$this->roomCode}")];
+        return [new PrivateChannel("room.{$this->roomCode}")];
     }
 
     /**

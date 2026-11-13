@@ -24,6 +24,7 @@ class WebRTCSignalTest extends TestCase
         ]);
 
         $this->actingAs($interviewer)
+            ->enterRoom($room)
             ->postJson(route('rooms.signals.store', $room->room_code), [
                 'type' => 'offer',
                 'data' => ['type' => 'offer', 'sdp' => 'v=0'],
@@ -44,6 +45,7 @@ class WebRTCSignalTest extends TestCase
         ]);
 
         $this->actingAs($applicant)
+            ->enterRoom($room)
             ->postJson(route('rooms.signals.store', $room->room_code), [
                 'type' => 'offer',
                 'data' => ['sdp' => 'v=0'],

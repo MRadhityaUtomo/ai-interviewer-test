@@ -8,14 +8,15 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class InterviewRecordingController extends Controller
 {
-    public function index(Request $request, string $roomCode): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $room = InterviewRoom::where('room_code', strtoupper($roomCode))->firstOrFail();
+        /** @var InterviewRoom $room Resolved by room.participant:interviewer */
+        $room = $request->attributes->get('room');
 
         $recordings = InterviewRecording::where('interview_room_id', $room->id)
             ->with('user:id,name,role')
@@ -27,9 +28,10 @@ class InterviewRecordingController extends Controller
         ]);
     }
 
-    public function store(Request $request, string $roomCode): JsonResponse
+    public function store(Request $request): JsonResponse
     {
-        $room = InterviewRoom::where('room_code', strtoupper($roomCode))->firstOrFail();
+        /** @var InterviewRoom $room Resolved by room.participant:interviewer */
+        $room = $request->attributes->get('room');
 
         $request->validate([
             'recording' => ['required', 'file', 'max:204800'], // max 200MB
@@ -75,6 +77,8 @@ class InterviewRecordingController extends Controller
 
     public function stream(Request $request, InterviewRecording $recording): Response
     {
+        $this->authorizeOwner($request, $recording);
+
         if (! Storage::disk('public')->exists($recording->file_path)) {
             abort(404, 'Recording file not found on disk.');
         }
@@ -91,6 +95,8 @@ class InterviewRecordingController extends Controller
 
     public function download(Request $request, InterviewRecording $recording): StreamedResponse
     {
+        $this->authorizeOwner($request, $recording);
+
         if (! Storage::disk('public')->exists($recording->file_path)) {
             abort(404, 'Recording file not found on disk.');
         }
@@ -98,10 +104,10 @@ class InterviewRecordingController extends Controller
         return Storage::disk('public')->download($recording->file_path, $recording->file_name);
     }
 
-    public function analyzeAudio(Request $request, ?string $roomCode = null): JsonResponse
+    public function analyzeAudio(Request $request): JsonResponse
     {
-        $code = $roomCode ?: $request->input('room_code');
-        $room = $code ? InterviewRoom::where('room_code', strtoupper($code))->first() : null;
+        /** @var InterviewRoom $room Resolved by room.participant */
+        $room = $request->attributes->get('room');
 
         $request->validate([
             'audio' => ['required', 'file', 'max:102400'], // max 100MB
@@ -111,7 +117,7 @@ class InterviewRecordingController extends Controller
         $extension = $file->getClientOriginalExtension() ?: 'webm';
         $timestamp = now()->format('Ymd_His');
         $random = Str::random(6);
-        $folderCode = $room ? $room->room_code : 'general';
+        $folderCode = $room->room_code;
         $fileName = "audio_ai_{$folderCode}_{$timestamp}_{$random}.{$extension}";
         $folder = "audio/{$folderCode}";
 
@@ -131,5 +137,18 @@ class InterviewRecordingController extends Controller
             'file_path' => $storedPath,
             'size_bytes' => $file->getSize() ?: 0,
         ], 200);
+    }
+
+    /**
+     * Recordings are only for the interviewer who owns the room.
+     */
+    private function authorizeOwner(Request $request, InterviewRecording $recording): void
+    {
+        $ownerId = InterviewRoom::whereKey($recording->interview_room_id)->value('user_id');
+
+        abort_unless(
+            $request->user()->role === 'interviewer' && $ownerId === $request->user()->id,
+            403,
+        );
     }
 }

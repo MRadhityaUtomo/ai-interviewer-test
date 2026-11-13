@@ -6,10 +6,11 @@ use App\Models\InterviewMessage;
 use App\Models\InterviewRoom;
 use App\Services\Ai\AiProviderException;
 use App\Services\Ai\InterviewAiService;
+use App\Services\RoomAccessService;
 use App\Services\RoomPresenceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cookie;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -63,9 +64,13 @@ class RoomController extends Controller
     /**
      * Camera / microphone check before entering. Does not take a participant slot.
      */
-    public function lobby(Request $request, string $roomCode): Response
+    public function lobby(Request $request, string $roomCode, RoomAccessService $access): Response
     {
         $room = $this->findRoomFor($request, $roomCode);
+
+        if ($access->isTakenFor($room, $request->user())) {
+            return Inertia::render('room/full', ['roomCode' => $room->room_code]);
+        }
 
         return Inertia::render('room/lobby', [
             'roomCode' => $room->room_code,
@@ -77,19 +82,25 @@ class RoomController extends Controller
         Request $request,
         string $roomCode,
         RoomPresenceService $presence,
-    ): Response|RedirectResponse {
+        RoomAccessService $access,
+    ): Response {
         $room = $this->findRoomFor($request, $roomCode);
-        $role = $request->user()->role;
-        $participantToken = $request->query('participant_token');
+        $user = $request->user();
+        $role = $user->role;
 
-        if (! is_string($participantToken) || $participantToken === '') {
-            return redirect()->route('rooms.show', [
-                'roomCode' => $room->room_code,
-                'participant_token' => Str::random(40),
-            ]);
+        // Keep a valid seat as is (this page is also polled for new messages);
+        // otherwise take a seat and hand out a fresh room cookie.
+        if ($access->resolve($request, $room) === null) {
+            $token = $access->enter($room, $user);
+
+            if ($token === null) {
+                return Inertia::render('room/full', ['roomCode' => $room->room_code]);
+            }
+
+            Cookie::queue($access->cookie($room, $token));
         }
 
-        $presenceResult = $presence->claim($room->room_code, $participantToken, $role);
+        $presenceResult = $presence->claim($room->room_code, "user:{$user->id}", $role);
 
         if (! $presenceResult['allowed']) {
             return Inertia::render('room/full', [
@@ -108,7 +119,6 @@ class RoomController extends Controller
                 'status' => $room->status,
             ],
             'participantRole' => $role,
-            'participantToken' => $participantToken,
             'participantCount' => $presenceResult['count'],
             'messages' => $messages,
         ]);
@@ -117,11 +127,10 @@ class RoomController extends Controller
     /**
      * Phase 22: Receive speech transcript/message, save to DB, generate AI reply.
      */
-    public function sendMessage(Request $request, string $roomCode, InterviewAiService $ai): RedirectResponse
+    public function sendMessage(Request $request, InterviewAiService $ai): RedirectResponse
     {
-        $room = InterviewRoom::where('room_code', strtoupper($roomCode))
-            ->where('status', 'active')
-            ->firstOrFail();
+        /** Resolved by the room.participant middleware */
+        $room = $request->attributes->get('room');
 
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:2000'],

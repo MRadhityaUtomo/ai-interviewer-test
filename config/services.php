@@ -29,8 +29,18 @@ return [
     ],
 
     'ai' => [
-        // "fake" (offline dummy replies) or "qwen"
+        // "fake" (offline dummy replies), "ollama" (local open-weight Qwen) or "qwen" (Alibaba DashScope)
         'provider' => env('AI_PROVIDER', 'fake'),
+    ],
+
+    // Free local stand-in until DashScope access is granted. Ollama serves an
+    // OpenAI-compatible API, so QwenProvider talks to it unchanged.
+    'ollama' => [
+        // Inside Docker, compose.yaml overrides this with http://host.docker.internal:11434/v1
+        'base_url' => env('OLLAMA_BASE_URL', 'http://localhost:11434/v1'),
+        'model' => env('OLLAMA_MODEL', 'qwen2.5:3b'),
+        // Local models are slower than the cloud API, especially on the first (cold) call.
+        'timeout' => (int) env('OLLAMA_TIMEOUT', 120),
     ],
 
     'qwen' => [

@@ -23,6 +23,7 @@ class RoomMessageTest extends TestCase
         ]);
 
         $response = $this->actingAs($applicant)
+            ->enterRoom($room)
             ->post(route('rooms.send-message', $room->room_code), [
                 'message' => 'Halo, saya memiliki pengalaman 3 tahun sebagai Fullstack Engineer.',
             ]);
@@ -47,6 +48,7 @@ class RoomMessageTest extends TestCase
         ]);
 
         $response = $this->actingAs($applicant)
+            ->enterRoom($room)
             ->post(route('rooms.send-message', $room->room_code), [
                 'message' => '',
             ]);
@@ -64,6 +66,7 @@ class RoomMessageTest extends TestCase
         ]);
 
         $this->actingAs($interviewer)
+            ->enterRoom($room)
             ->post(route('rooms.send-message', $room->room_code), [
                 'message' => 'Catatan: kandidat menjawab dengan jelas.',
             ])
@@ -99,10 +102,10 @@ class RoomMessageTest extends TestCase
             'user_id' => $interviewer->id,
         ]);
 
-        $this->actingAs($interviewer)->post(route('rooms.send-message', $room->room_code), [
+        $this->actingAs($interviewer)->enterRoom($room)->post(route('rooms.send-message', $room->room_code), [
             'message' => 'Catatan interviewer.',
         ]);
-        $this->actingAs($applicant)->post(route('rooms.send-message', $room->room_code), [
+        $this->actingAs($applicant)->enterRoom($room)->post(route('rooms.send-message', $room->room_code), [
             'message' => 'Jawaban kandidat.',
         ]);
 

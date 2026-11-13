@@ -86,6 +86,7 @@ class QwenProviderTest extends TestCase
         $room = InterviewRoom::create(['room_code' => 'QWEN01', 'status' => 'active', 'user_id' => $applicant->id]);
 
         $this->actingAs($applicant)
+            ->enterRoom($room)
             ->post(route('rooms.send-message', $room->room_code), ['message' => 'Saya backend engineer.'])
             ->assertSessionHasNoErrors();
 
@@ -94,7 +95,8 @@ class QwenProviderTest extends TestCase
             'Apa peran Anda di tim?',
             InterviewMessage::where('room_code', 'QWEN01')->where('role', 'ai_assistant')->value('message'),
         );
-        Http::assertSent(fn (Request $request): bool => end($request->data()['messages']) === [
+        // Only the Qwen call; opening the room page may make other HTTP calls (e.g. SSR)
+        Http::assertSent(fn (Request $request): bool => $request->url() === self::URL && end($request->data()['messages']) === [
             'role' => 'user', 'content' => 'Saya backend engineer.',
         ]);
     }
@@ -108,6 +110,7 @@ class QwenProviderTest extends TestCase
         $room = InterviewRoom::create(['room_code' => 'QWEN02', 'status' => 'active', 'user_id' => $applicant->id]);
 
         $this->actingAs($applicant)
+            ->enterRoom($room)
             ->post(route('rooms.send-message', $room->room_code), ['message' => 'Jawaban saya.'])
             ->assertSessionHasErrors(['message']);
 

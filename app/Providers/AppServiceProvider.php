@@ -25,6 +25,14 @@ class AppServiceProvider extends ServiceProvider
                 model: config('services.qwen.model'),
                 timeout: config('services.qwen.timeout'),
             ),
+            'ollama' => new QwenProvider(
+                apiKey: null,
+                baseUrl: config('services.ollama.base_url'),
+                model: config('services.ollama.model'),
+                timeout: config('services.ollama.timeout'),
+                label: 'Ollama',
+                requiresApiKey: false,
+            ),
             default => new FakeAiProvider,
         });
     }

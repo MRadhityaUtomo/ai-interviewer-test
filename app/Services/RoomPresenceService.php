@@ -4,22 +4,26 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * Who is currently in a room, kept in the cache with a short TTL refreshed by
+ * heartbeats. Participants are keyed by "user:{id}" (see RoomPresenceController).
+ */
 class RoomPresenceService
 {
     private const TTL_SECONDS = 45;
 
-    public function claim(string $roomCode, string $participantToken, string $role): array
+    public function claim(string $roomCode, string $participantKey, string $role): array
     {
         $participants = $this->activeParticipants($roomCode);
 
-        if (! isset($participants[$participantToken]) && count($participants) >= 2) {
+        if (! isset($participants[$participantKey]) && count($participants) >= 2) {
             return [
                 'allowed' => false,
                 'count' => count($participants),
             ];
         }
 
-        $participants[$participantToken] = [
+        $participants[$participantKey] = [
             'role' => $role,
             'last_seen' => now()->timestamp,
         ];
@@ -32,15 +36,15 @@ class RoomPresenceService
         ];
     }
 
-    public function heartbeat(string $roomCode, string $participantToken, string $role): array
+    public function heartbeat(string $roomCode, string $participantKey, string $role): array
     {
-        return $this->claim($roomCode, $participantToken, $role);
+        return $this->claim($roomCode, $participantKey, $role);
     }
 
-    public function release(string $roomCode, string $participantToken): void
+    public function release(string $roomCode, string $participantKey): void
     {
         $participants = $this->activeParticipants($roomCode);
-        unset($participants[$participantToken]);
+        unset($participants[$participantKey]);
         $this->store($roomCode, $participants);
     }
 

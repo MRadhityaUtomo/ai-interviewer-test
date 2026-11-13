@@ -5,7 +5,7 @@
 | Item | Status |
 | --- | --- |
 | Provider yang dipilih perusahaan | **Alibaba Qwen** (Model Studio / DashScope) |
-| Akses API | ⏳ Belum ada. Aplikasi sengaja berjalan dengan `AI_PROVIDER=fake` |
+| Akses API | ⏳ Belum ada. Sementara bisa memakai **Ollama** (Qwen open-source, lokal, gratis) dengan `AI_PROVIDER=ollama`, atau `AI_PROVIDER=fake` untuk balasan dummy |
 | Kode integrasi | ✅ `QwenProvider` siap dan teruji dengan `Http::fake()` |
 | Speech-to-text | Web Speech API browser (bukan Qwen) |
 
@@ -19,6 +19,7 @@ flowchart LR
     I --> F[FakeAiProvider]
     I --> Q[QwenProvider]
     Q -- "POST /chat/completions<br/>JSON mode" --> D[(DashScope API)]
+    Q -. "AI_PROVIDER=ollama" .-> O[(Ollama lokal<br/>localhost:11434)]
     Q -. "config" .- SV[config/services.php<br/>.env]
 ```
 
@@ -44,6 +45,36 @@ Pemetaan role: `applicant` → `user`, `ai_assistant` → `assistant`.
 ```
 
 Jika output tidak valid, provider gagal, atau API key kosong, sistem melempar `AiProviderException`. Controller lalu mengembalikan pesan error ke user, sementara jawaban applicant tetap tersimpan.
+
+## Pengganti Sementara: Ollama (gratis, lokal)
+
+Selama akses DashScope belum ada, model Qwen versi **open-weight** bisa dijalankan di laptop lewat [Ollama](https://ollama.com). Ollama menyediakan API yang kompatibel dengan OpenAI, jadi `QwenProvider` dipakai apa adanya. Perbedaannya hanya tidak ada API key dan timeout lebih panjang.
+
+Kelebihannya: gratis, tanpa akun, dan **data kandidat tidak keluar dari laptop**. Prompt yang disetel sekarang tetap relevan karena keluarga modelnya sama.
+
+1. Pasang Ollama dan unduh model (sekali saja, dari PowerShell):
+   ```bash
+   winget install Ollama.Ollama
+   ```
+   ```bash
+   ollama pull qwen2.5:3b
+   ```
+2. Ubah `.env`:
+   ```
+   AI_PROVIDER=ollama
+   OLLAMA_MODEL=qwen2.5:3b
+   ```
+3. Restart container: `docker compose up -d --force-recreate`. Di dalam Docker, `OLLAMA_BASE_URL` otomatis diarahkan ke `http://host.docker.internal:11434/v1` oleh `compose.yaml`.
+
+| Model | Ukuran | Catatan (RAM 16 GB, GPU 4 GB) |
+| --- | --- | --- |
+| `qwen2.5:3b` | ±2 GB | Muat penuh di GPU, cepat. Default |
+| `qwen2.5:7b` | ±4,7 GB | Lebih pintar, tapi sebagian jalan di CPU sehingga lebih lambat |
+
+Catatan:
+- Panggilan pertama setelah Ollama menyala lebih lambat karena model dimuat ke memori. Karena itu `OLLAMA_TIMEOUT` default 120 detik.
+- Model 3B jelas kalah pintar dari `qwen-plus`. Pakai untuk menguji alur dan prompt, bukan untuk menilai kualitas akhir.
+- Kalau container tidak bisa menghubungi Ollama (error "Ollama request failed"), jalankan Ollama dengan `OLLAMA_HOST=0.0.0.0` agar mendengarkan di semua interface.
 
 ## Mengaktifkan Qwen
 

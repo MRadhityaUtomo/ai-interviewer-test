@@ -25,6 +25,7 @@
 - [x] Lapisan AI siap pakai (`FakeAiProvider` → `QwenProvider`), tinggal isi API key
 - [x] Dokumentasi proyek (`docs/`)
 - [ ] **AI sungguhan**: menunggu akses model Qwen
+- [x] Pengganti sementara gratis: Qwen open-source lokal lewat **Ollama** (`AI_PROVIDER=ollama`)
 - [x] Database pindah ke **PostgreSQL** (di Docker, masih di laptop)
 - [ ] **Belum di-deploy**
 - [x] Menjalankan aplikasi dengan **satu perintah**: `docker compose up -d` (app, Reverb, queue, Vite, PostgreSQL, Redis)
@@ -63,10 +64,11 @@
 > ❓ **Kenapa sekarang?** Data saat ini hanya data uji, jadi biaya pindahnya hampir nol. SQLite akan sering *locked* begitu ada queue AI dan banyak applicant menulis bersamaan.
 
 ### Keamanan (dari [Known issues](KNOWN_ISSUES.md))
-- [ ] Ganti channel `room.{CODE}` dari publik ke **private channel** + otorisasi
-- [ ] Batasi stream/download rekaman hanya untuk interviewer pemilik room
+- [x] Ganti channel `room.{CODE}` dari publik ke **private channel** + otorisasi
+- [x] Batasi stream/download rekaman hanya untuk interviewer pemilik room
 - [ ] Pindahkan file rekaman dari disk `public` ke disk privat
-- [ ] Cek keikutsertaan user di `sendMessage`, rekaman, dan `analyze-audio`
+- [x] Cek keikutsertaan user di `sendMessage`, rekaman, dan `analyze-audio` (session per room: cookie HttpOnly + `interview_participants`)
+- [ ] Set `SESSION_SECURE_COOKIE=true` saat production (HTTPS)
 - [ ] Lindungi atau hapus prototype `/interview` (tanpa login)
 
 ### Perbaikan fungsional
@@ -318,7 +320,7 @@ flowchart TD
 
 | Risiko | Dampak | Mitigasi |
 | --- | --- | --- |
-| Akses API Qwen lama turun | Fase 2–3 tertunda | Kerjakan Fase 0, 1, 4, dan 5 dengan `FakeAiProvider` |
+| Akses API Qwen lama turun | Fase 2–3 tertunda | Uji alur dan prompt dengan Qwen lokal lewat Ollama; kerjakan Fase 0, 1, 4, dan 5 |
 | STT salah tangkap istilah perusahaan | AI salah memahami jawaban | Glosarium + kamus normalizer, uji di Fase 2 |
 | AI memotong jawaban kandidat | Pengalaman buruk, penilaian tidak adil | Hitung mundur yang bisa dibatalkan + tombol manual + ambang yang bisa diatur |
 | Suara AI ikut tertranskripsi | Jawaban kandidat tercampur | Jeda STT saat TTS berjalan, sarankan pakai headset |

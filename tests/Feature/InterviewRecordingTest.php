@@ -34,7 +34,7 @@ class InterviewRecordingTest extends TestCase
             'user_id' => $user->id,
         ]);
 
-        $this->actingAs($user);
+        $this->actingAs($user)->enterRoom($room);
 
         $file = UploadedFile::fake()->create('meeting.webm', 2048, 'video/webm');
 
@@ -86,7 +86,7 @@ class InterviewRecordingTest extends TestCase
             'status' => 'ready',
         ]);
 
-        $this->actingAs($user);
+        $this->actingAs($user)->enterRoom($room);
 
         $response = $this->getJson(route('rooms.recordings.index', $room->room_code));
 
@@ -141,7 +141,7 @@ class InterviewRecordingTest extends TestCase
             'user_id' => $user->id,
         ]);
 
-        $this->actingAs($user);
+        $this->actingAs($user)->enterRoom($room);
 
         $audioFile = UploadedFile::fake()->create('ai_audio.webm', 512, 'audio/webm');
 

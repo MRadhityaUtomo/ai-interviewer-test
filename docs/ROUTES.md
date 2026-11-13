@@ -16,19 +16,27 @@ Tipe respons: **Inertia** merender halaman React, **Redirect** mengarahkan ke ha
 | POST | `/rooms` | `RoomController@create` | Redirect | Hanya interviewer. Membuat room baru, lalu ke lobby |
 | POST | `/room/join` | `RoomController@join` | Redirect | Hanya applicant. Body: `room_code` (6 karakter), lalu ke lobby |
 | GET | `/rooms/{roomCode}/lobby` | `RoomController@lobby` | Inertia `room/lobby` | Cek kamera/mic sebelum masuk. Tidak memakai slot peserta |
-| GET | `/rooms/{roomCode}` | `RoomController@show` | Inertia `room/show` / `room/full` | Menambahkan `participant_token` jika belum ada |
+| GET | `/rooms/{roomCode}` | `RoomController@show` | Inertia `room/show` / `room/full` | Memberi cookie peserta `room_participant` (lihat di bawah) |
 | POST | `/rooms/{roomCode}/send-message` | `RoomController@sendMessage` | Redirect | Body: `message` (≤2000). Applicant mendapat balasan AI |
-| POST | `/room/{roomCode}/send-message` | sama | Redirect | Alias lama |
 | POST | `/rooms/{roomCode}/signals` | `WebRTCSignalController@store` | JSON | Body: `type` (`offer`/`answer`/`ice-candidate`/`left_room`), `data` |
-| POST | `/rooms/{roomCode}/presence/heartbeat` | `RoomPresenceController@heartbeat` | JSON 200 / 409 | Body: `participant_token` |
-| POST | `/rooms/{roomCode}/presence/leave` | `RoomPresenceController@leave` | JSON | Body: `participant_token` |
+| POST | `/rooms/{roomCode}/presence/heartbeat` | `RoomPresenceController@heartbeat` | JSON 200 / 409 | Peserta dikenali dari cookie room |
+| POST | `/rooms/{roomCode}/presence/leave` | `RoomPresenceController@leave` | JSON | Peserta dikenali dari cookie room |
 | POST | `/rooms/{roomCode}/violations` | `RoomViolationController@store` | JSON | Hanya applicant. Body: `event_type` (`tab_hidden`/`window_blurred`) |
 | GET | `/rooms/{roomCode}/recordings` | `InterviewRecordingController@index` | JSON | Daftar rekaman room |
 | POST | `/rooms/{roomCode}/recordings` | `InterviewRecordingController@store` | JSON 201 | Multipart: `recording` (≤200MB), `duration` |
 | GET | `/recordings/{recording}/stream` | `InterviewRecordingController@stream` | Video | Putar langsung di browser |
 | GET | `/recordings/{recording}/download` | `InterviewRecordingController@download` | File | |
 | POST | `/rooms/{roomCode}/analyze-audio` | `InterviewRecordingController@analyzeAudio` | JSON | Multipart: `audio` (≤100MB). Saat ini hanya disimpan |
-| POST | `/room/analyze-audio` | sama | JSON | Body tambahan opsional: `room_code` |
+
+### Session per room
+
+Membuka `/rooms/{roomCode}` memberi cookie **`room_participant`**: token acak 64 karakter, terenkripsi oleh Laravel, `HttpOnly`, `SameSite=Strict`, `Secure` saat `SESSION_SECURE_COOKIE=true`, berlaku 8 jam, dan path-nya dibatasi ke `/rooms/{roomCode}`. Database hanya menyimpan hash SHA-256-nya di `interview_participants`.
+
+Semua endpoint di bawah `/rooms/{roomCode}/…` (signal, presence, pesan, rekaman, pelanggaran, analyze-audio) memakai middleware `room.participant`, yang menolak request (403) bila cookie tidak cocok dengan user yang login. Beberapa endpoint juga membatasi role: rekaman hanya `interviewer`, pelanggaran hanya `applicant`.
+
+- Kandidat pertama yang masuk **mengunci** kursi kandidat room tersebut; applicant lain melihat halaman "Room penuh".
+- Masuk dari browser/perangkat lain dengan akun yang sama membuat token baru, dan cookie di perangkat lama tidak berlaku lagi.
+- Rekaman (`/recordings/{id}/…`) hanya bisa diputar/diunduh interviewer pemilik room.
 
 ## Prototype Interview Lama (tanpa login)
 
@@ -56,7 +64,7 @@ Prototype ini terpisah dari room dan belum memakai `AiProviderInterface`.
 
 | Channel | Tipe | Event | Payload |
 | --- | --- | --- | --- |
-| `room.{CODE}` | **Publik** | `WebRTCSignal` | `{ room_code, type, data }`. `type`: `offer`, `answer`, `ice-candidate`, `left_room`, `violation_warning` |
+| `room.{CODE}` | **Privat** (hanya peserta room) | `WebRTCSignal` | `{ room_code, type, data }`. `type`: `offer`, `answer`, `ice-candidate`, `left_room`, `violation_warning` |
 | `App.Models.User.{id}` | Privat | (belum dipakai) | Hanya user ybs |
 
 Signal dikirim `toOthers()`, sehingga pengirim tidak menerima pesannya sendiri (lewat header `X-Socket-ID`).

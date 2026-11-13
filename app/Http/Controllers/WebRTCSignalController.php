@@ -3,35 +3,35 @@
 namespace App\Http\Controllers;
 
 use App\Events\WebRTCSignal;
+use App\Models\InterviewParticipant;
 use App\Models\InterviewRoom;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class WebRTCSignalController extends Controller
 {
-    public function store(Request $request, string $roomCode): JsonResponse
+    public function store(Request $request): JsonResponse
     {
-        $roomCode = strtoupper($roomCode);
-
-        InterviewRoom::where('room_code', $roomCode)
-            ->where('status', 'active')
-            ->firstOrFail();
+        /** @var InterviewRoom $room */
+        $room = $request->attributes->get('room');
+        /** @var InterviewParticipant $participant */
+        $participant = $request->attributes->get('participant');
 
         $validated = $request->validate([
             'type' => ['required', 'string', 'in:offer,answer,ice-candidate,left_room'],
             'data' => ['required', 'array'],
         ]);
 
-        if ($validated['type'] === 'offer' && $request->user()->role !== 'interviewer') {
+        if ($validated['type'] === 'offer' && $participant->role !== 'interviewer') {
             abort(403, 'Only an interviewer can start the call.');
         }
 
-        if ($validated['type'] === 'answer' && $request->user()->role !== 'applicant') {
+        if ($validated['type'] === 'answer' && $participant->role !== 'applicant') {
             abort(403, 'Only an applicant can answer the call.');
         }
 
         broadcast(new WebRTCSignal(
-            $roomCode,
+            $room->room_code,
             $validated['type'],
             $validated['data'],
         ))->toOthers();

@@ -17,7 +17,7 @@ Dokumen ini menjelaskan teknologi yang dipakai, komponen utama, dan letak setiap
 | Speech-to-text di browser (Web Speech API, mode campuran ID–EN) | ✅ Jalan |
 | Indikator border hijau saat peserta bicara | ✅ Jalan |
 | Rekaman meeting (video + audio terpisah), simpan dan putar ulang | ✅ Jalan |
-| Chat transkrip → balasan AI | ⚠️ Memakai `FakeAiProvider` (balasan dummy) |
+| Chat transkrip → balasan AI | ⚠️ `FakeAiProvider` (dummy) atau Ollama lokal (Qwen open-source) |
 | Integrasi Qwen (`QwenProvider`) | ⏳ Kode siap, menunggu akses API |
 | Skor, ringkasan, dan dashboard recruiter | ❌ Belum ada |
 
@@ -32,7 +32,7 @@ Dokumen ini menjelaskan teknologi yang dipakai, komponen utama, dan letak setiap
 | Realtime | **Laravel Reverb** (WebSocket) + `@laravel/echo-react` |
 | Video/audio | WebRTC (`RTCPeerConnection`), `MediaRecorder`, Web Audio API |
 | Speech-to-text | Web Speech API browser (`SpeechRecognition`) |
-| AI | `AiProviderInterface` → `FakeAiProvider` / `QwenProvider` (DashScope, OpenAI-compatible) |
+| AI | `AiProviderInterface` → `FakeAiProvider` / `QwenProvider` (DashScope atau Ollama lokal, OpenAI-compatible) |
 | Database | SQLite (lokal), bisa diganti PostgreSQL/MySQL |
 | Cache / session / queue | **Redis** (DB 0 untuk session, DB 1 untuk cache). Signal WebRTC di-broadcast langsung (`ShouldBroadcastNow`), tidak lewat queue |
 | Penyimpanan file | Disk `public` (`storage/app/public`) |
@@ -151,11 +151,12 @@ ai-int-test/
 | --- | --- |
 | `RoomController` | Interviewer membuat room, applicant join dengan kode, halaman room memuat riwayat pesan, `sendMessage` menyimpan transkrip lalu meminta balasan AI |
 | `WebRTCSignalController` | Memvalidasi lalu mem-broadcast signal. Hanya interviewer yang boleh `offer`, hanya applicant yang boleh `answer` |
-| `RoomPresenceService` | Menyimpan peserta aktif per room di cache (`interview-room-presence:{CODE}`, TTL 45 detik). Menolak peserta ketiga |
+| `RoomAccessService` + `EnsureRoomParticipant` | Session per room: kursi peserta di `interview_participants`, cookie `room_participant` (HttpOnly, SameSite=Strict, path `/rooms/{CODE}`), kunci kursi kandidat, otorisasi channel privat |
+| `RoomPresenceService` | Menyimpan peserta aktif per room di cache (`interview-room-presence:{CODE}`, TTL 45 detik), per user |
 | `RoomViolationController` | Applicant melaporkan `tab_hidden` / `window_blurred`, lalu diteruskan ke interviewer sebagai `violation_warning` (tidak disimpan ke DB) |
 | `InterviewRecordingController` | Menyimpan video (maksimal 200 MB) dan audio (maksimal 100 MB) ke disk `public`, menampilkan daftar, stream, dan download |
 | `InterviewAiService` | Mengambil 30 pesan terakhir room, memetakannya ke format chat, memanggil provider, memvalidasi field `reply` |
-| `QwenProvider` | `POST {base_url}/chat/completions` dengan JSON mode, timeout, dan retry untuk 429/5xx |
+| `QwenProvider` | `POST {base_url}/chat/completions` dengan JSON mode, timeout, dan retry untuk 429/5xx. Dipakai untuk DashScope (`qwen`) dan Ollama lokal (`ollama`, tanpa API key) |
 | `FakeAiProvider` | Balasan dummy berbahasa Indonesia, dipakai sampai akses API tersedia |
 
 ## 6. Komponen Frontend (hooks)
@@ -166,7 +167,7 @@ Semua hook berada di `resources/js/hooks/` dan dirangkai di `pages/room/show.tsx
 | --- | --- |
 | `use-local-media` | Mengambil kamera dan mic (`getUserMedia`), mute, kamera on/off |
 | `use-device-setup` | Memilih perangkat dan menampilkan level mic di lobby |
-| `use-room-signaling` | Subscribe channel publik `room.{code}`, kirim signal ke `/rooms/{code}/signals` |
+| `use-room-signaling` | Subscribe channel privat `room.{code}`, kirim signal ke `/rooms/{code}/signals` |
 | `use-webrtc` | `RTCPeerConnection`: offer/answer/ICE, `remoteStream`, hang up |
 | `use-room-presence` | Heartbeat berkala ke server, deteksi room penuh, leave saat keluar |
 | `use-proctoring-events` | (Applicant) mendeteksi pindah tab atau blur jendela, lalu melapor ke server |

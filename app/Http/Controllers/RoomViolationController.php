@@ -9,21 +9,20 @@ use Illuminate\Http\Request;
 
 class RoomViolationController extends Controller
 {
-    public function store(Request $request, string $roomCode): JsonResponse
+    /**
+     * Only the applicant's seat reaches this (room.participant:applicant).
+     */
+    public function store(Request $request): JsonResponse
     {
-        abort_unless($request->user()->role === 'applicant', 403);
-
-        $roomCode = strtoupper($roomCode);
-        InterviewRoom::where('room_code', $roomCode)
-            ->where('status', 'active')
-            ->firstOrFail();
+        /** @var InterviewRoom $room */
+        $room = $request->attributes->get('room');
 
         $validated = $request->validate([
             'event_type' => ['required', 'string', 'in:tab_hidden,window_blurred'],
         ]);
 
         broadcast(new WebRTCSignal(
-            $roomCode,
+            $room->room_code,
             'violation_warning',
             [
                 'event_type' => $validated['event_type'],

@@ -23,8 +23,8 @@ export default function RoomFull({ roomCode }: RoomFullProps) {
                         <span className="font-mono font-semibold">
                             {roomCode}
                         </span>{' '}
-                        sudah memiliki dua peserta aktif. Coba lagi beberapa
-                        saat lagi.
+                        sedang dipakai peserta lain. Pastikan kode room
+                        benar, atau hubungi interviewer.
                     </p>
                     <Button asChild className="mt-6 w-full">
                         <Link href="/rooms">Kembali</Link>

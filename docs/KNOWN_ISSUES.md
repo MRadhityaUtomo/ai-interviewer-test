@@ -6,10 +6,10 @@ Temuan dari review kode. Diurutkan per kategori, dengan perkiraan dampak.
 
 | # | Masalah | Lokasi | Dampak | Saran |
 | --- | --- | --- | --- | --- |
-| S1 | Channel `room.{CODE}` bersifat **publik**. Siapa pun yang tahu kode room bisa subscribe dan membaca SDP/ICE serta peringatan pelanggaran | `WebRTCSignal::broadcastOn`, `use-room-signaling` | Tinggi | Ganti ke `PrivateChannel` + otorisasi di `routes/channels.php` (hanya pemilik room & applicant terdaftar) |
-| S2 | `stream` / `download` rekaman **tidak memeriksa hak akses**. Semua user login bisa mengakses rekaman apa pun lewat ID | `InterviewRecordingController` | Tinggi | Batasi ke interviewer pemilik room |
-| S3 | `index` / `store` rekaman dan `analyze-audio` tidak memeriksa role atau kepemilikan room | `InterviewRecordingController` | Sedang | Tambah policy / pengecekan role |
-| S4 | `sendMessage` tidak memeriksa apakah user memang peserta room tersebut | `RoomController::sendMessage` | Sedang | Validasi kepemilikan / keikutsertaan |
+| ~~S1~~ | ✅ Selesai: channel `room.{CODE}` kini **privat**; hanya user yang duduk di room (tabel `interview_participants`) yang boleh subscribe | `routes/channels.php` | — | — |
+| ~~S2~~ | ✅ Selesai: stream/download rekaman hanya untuk interviewer pemilik room | `InterviewRecordingController` | — | — |
+| ~~S3~~ | ✅ Selesai: daftar/upload rekaman khusus interviewer peserta room; `analyze-audio` wajib cookie room | `routes/web.php` (`room.participant`) | — | — |
+| ~~S4~~ | ✅ Selesai: semua endpoint di dalam room mengecek cookie peserta (`EnsureRoomParticipant`) | `app/Http/Middleware` | — | — |
 | S5 | Prototype `/interview` tanpa middleware `auth` | `routes/web.php` | Rendah | Lindungi atau hapus setelah room menggantikannya |
 | S6 | File rekaman disimpan di disk `public`, sehingga bisa diakses langsung lewat `/storage/...` jika path diketahui | `storage/app/public/recordings` | Sedang | Pindah ke disk privat, akses hanya lewat controller |
 

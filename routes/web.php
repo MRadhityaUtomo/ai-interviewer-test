@@ -13,23 +13,34 @@ Route::redirect('/', '/dashboard')->name('home');
 Route::inertia('dashboard', 'dashboard')->name('dashboard');
 
 Route::middleware('auth')->group(function () {
-	Route::get('rooms', [RoomController::class, 'index'])->name('rooms.index');
-	Route::post('rooms', [RoomController::class, 'create'])->name('rooms.create');
-	Route::post('room/join', [RoomController::class, 'join'])->name('room.join');
-	Route::get('rooms/{roomCode}/lobby', [RoomController::class, 'lobby'])->name('rooms.lobby');
-	Route::get('rooms/{roomCode}', [RoomController::class, 'show'])->name('rooms.show');
-	Route::post('rooms/{roomCode}/signals', [WebRTCSignalController::class, 'store'])->name('rooms.signals.store');
-	Route::post('rooms/{roomCode}/presence/heartbeat', [RoomPresenceController::class, 'heartbeat'])->name('rooms.presence.heartbeat');
-	Route::post('rooms/{roomCode}/presence/leave', [RoomPresenceController::class, 'leave'])->name('rooms.presence.leave');
-	Route::post('rooms/{roomCode}/violations', [RoomViolationController::class, 'store'])->name('rooms.violations.store');
-	Route::get('rooms/{roomCode}/recordings', [InterviewRecordingController::class, 'index'])->name('rooms.recordings.index');
-	Route::post('rooms/{roomCode}/recordings', [InterviewRecordingController::class, 'store'])->name('rooms.recordings.store');
-	Route::get('recordings/{recording}/stream', [InterviewRecordingController::class, 'stream'])->name('recordings.stream');
-	Route::get('recordings/{recording}/download', [InterviewRecordingController::class, 'download'])->name('recordings.download');
-	Route::post('rooms/{roomCode}/analyze-audio', [InterviewRecordingController::class, 'analyzeAudio'])->name('rooms.analyze-audio');
-	Route::post('room/analyze-audio', [InterviewRecordingController::class, 'analyzeAudio'])->name('room.analyze-audio');
-	Route::post('rooms/{roomCode}/send-message', [RoomController::class, 'sendMessage'])->name('rooms.send-message');
-	Route::post('room/{roomCode}/send-message', [RoomController::class, 'sendMessage'])->name('room.send-message');
+    Route::get('rooms', [RoomController::class, 'index'])->name('rooms.index');
+    Route::post('rooms', [RoomController::class, 'create'])->name('rooms.create');
+    Route::post('room/join', [RoomController::class, 'join'])->name('room.join');
+    Route::get('rooms/{roomCode}/lobby', [RoomController::class, 'lobby'])->name('rooms.lobby');
+    // Entering the room issues the per-room participant cookie
+    Route::get('rooms/{roomCode}', [RoomController::class, 'show'])->name('rooms.show');
+
+    // Everything inside a room requires that cookie (see EnsureRoomParticipant)
+    Route::middleware('room.participant')->prefix('rooms/{roomCode}')->name('rooms.')->group(function () {
+        Route::post('signals', [WebRTCSignalController::class, 'store'])->name('signals.store');
+        Route::post('presence/heartbeat', [RoomPresenceController::class, 'heartbeat'])->name('presence.heartbeat');
+        Route::post('presence/leave', [RoomPresenceController::class, 'leave'])->name('presence.leave');
+        Route::post('send-message', [RoomController::class, 'sendMessage'])->name('send-message');
+        Route::post('analyze-audio', [InterviewRecordingController::class, 'analyzeAudio'])->name('analyze-audio');
+    });
+
+    Route::middleware('room.participant:applicant')->group(function () {
+        Route::post('rooms/{roomCode}/violations', [RoomViolationController::class, 'store'])->name('rooms.violations.store');
+    });
+
+    Route::middleware('room.participant:interviewer')->group(function () {
+        Route::get('rooms/{roomCode}/recordings', [InterviewRecordingController::class, 'index'])->name('rooms.recordings.index');
+        Route::post('rooms/{roomCode}/recordings', [InterviewRecordingController::class, 'store'])->name('rooms.recordings.store');
+    });
+
+    // Outside the room path (no room cookie): only the interviewer who owns the room
+    Route::get('recordings/{recording}/stream', [InterviewRecordingController::class, 'stream'])->name('recordings.stream');
+    Route::get('recordings/{recording}/download', [InterviewRecordingController::class, 'download'])->name('recordings.download');
 });
 
 Route::get('interview', [InterviewController::class, 'show'])->name('interview.session');

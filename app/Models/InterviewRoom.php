@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class InterviewRoom extends Model
 {
@@ -26,5 +27,13 @@ class InterviewRoom extends Model
     public function messages()
     {
         return $this->hasMany(InterviewMessage::class, 'interview_room_id');
+    }
+
+    /**
+     * @return HasMany<InterviewParticipant, $this>
+     */
+    public function participants(): HasMany
+    {
+        return $this->hasMany(InterviewParticipant::class, 'interview_room_id');
     }
 }

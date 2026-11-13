@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 
 type RoomPresenceProps = {
     roomCode: string;
-    participantToken: string;
 };
 
 type PresenceResult = {
@@ -10,10 +9,11 @@ type PresenceResult = {
     count: number;
 };
 
-export function useRoomPresence({
-    roomCode,
-    participantToken,
-}: RoomPresenceProps) {
+/**
+ * Heartbeats keep this participant listed in the room. The server knows who we
+ * are from the per-room participant cookie, so nothing identifying is sent.
+ */
+export function useRoomPresence({ roomCode }: RoomPresenceProps) {
     const [participantCount, setParticipantCount] = useState(0);
     const [isAllowed, setIsAllowed] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -32,25 +32,31 @@ export function useRoomPresence({
                         'Content-Type': 'application/json',
                         ...(token ? { 'X-CSRF-TOKEN': token } : {}),
                     },
-                    body: JSON.stringify({
-                        participant_token: participantToken,
-                    }),
                 },
             );
-            const result = (await response.json()) as PresenceResult;
+            const result = (await response
+                .json()
+                .catch(() => ({}))) as Partial<PresenceResult>;
 
             if (!response.ok && endpoint === 'heartbeat') {
                 setIsAllowed(false);
-                setError('Room penuh. Hanya dua peserta yang diizinkan.');
+                setError(
+                    response.status === 403
+                        ? 'Sesi room tidak lagi berlaku. Muat ulang halaman untuk masuk kembali.'
+                        : 'Room penuh. Hanya dua peserta yang diizinkan.',
+                );
             }
 
             if (typeof result.count === 'number') {
                 setParticipantCount(result.count);
             }
 
-            return result;
+            return {
+                allowed: response.ok,
+                count: result.count ?? 0,
+            };
         },
-        [participantToken, roomCode],
+        [roomCode],
     );
 
     useEffect(() => {
